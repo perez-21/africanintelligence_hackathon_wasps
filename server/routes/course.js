@@ -1152,7 +1152,7 @@ router.get("/:id", async (req, res) => {
     //   return res.status(400).json({ message: "Invalid course ID format" });
     // }
 
-    let course = await db.collection("courses").findOne({ courseId });
+    let course = await db.collection("courses").findOne({ _id: new ObjectId(courseId) });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1209,7 +1209,7 @@ router.get("/:id/full", auth, async (req, res) => {
     let db = req.app.locals.db;
     let courseId = req.params.id;
 
-    let course = await db.collection("courses").findOne({ courseId });
+    let course = await db.collection("courses").findOne({ _id: new ObjectId(courseId) });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -1338,7 +1338,7 @@ router.put(
         .collection("courses")
         .updateOne({ courseId }, { $set: updateData });
       clg(`${courseId} was updated successfully...`);
-      let updatedCourse = await db.collection("courses").findOne({ courseId });
+      let updatedCourse = await db.collection("courses").findOne({ _id: new ObjectId(courseId) });
 
       res.json(updatedCourse);
     } catch (error) {
@@ -1358,7 +1358,7 @@ router.delete(
       let db = req.app.locals.db;
       let courseId = req.params.id;
 
-      let course = await db.collection("courses").findOne(courseId);
+      let course = await db.collection("courses").findOne({_id: new ObjectId(courseId)});
 
       if (!course) {
         return res.status(404).json({ message: "Course not found" });
@@ -1397,7 +1397,9 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
     let courseId = req.params.id;
     let learnerId = req.user.userId;
 
-    let course = await db.collection("courses").findOne({ courseId });
+    console.log(`course id: ${courseId}`);
+
+    let course = await db.collection("courses").findOne({key: courseId});
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }

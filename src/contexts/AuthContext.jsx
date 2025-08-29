@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import axios from 'axios';
 
 // API base URL
-const API_URL = 'https://africanapi.onrender.com/api';
+const API_URL = 'http://localhost:3031/api';
 
 
 const AuthContext = createContext(null);

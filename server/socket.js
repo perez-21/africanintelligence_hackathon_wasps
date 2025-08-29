@@ -1,6 +1,8 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
+const { vapid_private_key } = require("./configs/config");
+
 
 const setupSocket = (server, db) => {
   const io = new Server(server, {
@@ -17,7 +19,7 @@ const setupSocket = (server, db) => {
         return next(new Error('Authentication error: No token provided'));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, vapid_private_key);
       const user = await db.collection('users').findOne(
         { _id: new ObjectId(decoded.id) },
         { projection: { _id: 1, name: 1, email: 1 } }
@@ -114,4 +116,4 @@ const setupSocket = (server, db) => {
   return io;
 };
 
-module.exports = setupSocket;
+module.exports = {setupSocket};

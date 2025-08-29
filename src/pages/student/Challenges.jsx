@@ -9,6 +9,7 @@ import { useTourLMS } from '@/contexts/TourLMSContext';
 import { mockChallenges } from '@/data/mockChallenges';
 import ChallengeDetail from '@/components/challenge/ChallengeDetail';
 import ChallengeAttempt from '@/components/challenge/ChallengeAttempt';
+import { badgeService } from '../../services/badgeService';
 
 const Challenges = () => {
   const [activeChallenges, setActiveChallenges] = useState([]);
@@ -52,6 +53,7 @@ const Challenges = () => {
     });
     setSelectedChallenge(null);
     setAttemptingChallenge(activeChallenges.find(c => c.id === challengeId));
+    badgeService.handleXpEarned(10);
   };
 
   const handleSubmitSolution = async (challengeId, submission) => {
@@ -63,6 +65,7 @@ const Challenges = () => {
       title: "Solution Submitted!",
       description: "Your solution has been submitted successfully.",
     });
+    badgeService.handleXpEarned(50);
   };
 
   const renderChallengeCard = (challenge, type) => {

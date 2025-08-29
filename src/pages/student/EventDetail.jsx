@@ -21,6 +21,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ShareEventButton from '@/components/events/ShareEventButton';
 import { clg, ocn } from '../../lib/basic';
+import { badgeService } from '../../services/badgeService';
 
 const EventDetail = () => {
   const { id } = useParams();
@@ -114,6 +115,7 @@ const EventDetail = () => {
         
         setIsParticipant(true);
         setParticipantCount(prev => prev + 1);
+        badgeService.handleXpEarned(30);
       }
       
       // Refresh event data

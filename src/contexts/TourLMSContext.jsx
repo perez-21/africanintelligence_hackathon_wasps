@@ -4,8 +4,9 @@ import axios from 'axios';
 import { clg, ocn } from '../lib/basic';
 import { io } from 'socket.io-client';
 import notificationService from '../services/notificationService';
+import { badgeService } from '../services/badgeService';
 
-const API_URL = 'https://africanapi.onrender.com/api';
+const API_URL = 'http://localhost:3031/api';
 const clientID='NOTIFICATION-CLIENT-ID'
 
 const TourLMSContext = createContext(null);
@@ -33,6 +34,7 @@ export const TourLMSProvider = ({ children }) => {
   const [coursesLoaded,setCoursesLoaded] = useState(false)
   const [CoursesHub, setCoursesHub] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [facilitatorStats, setFacilitatorStats] = useState(null);
   const [facilitatorStudents, setFacilitatorStudents] = useState([]);
   const [socket, setSocket] = useState(null);
@@ -137,10 +139,10 @@ export const TourLMSProvider = ({ children }) => {
     
     if (token) {
       // Initialize socket connection
-      const socketURL = 'https://africanapi.onrender.com';
+      const socketURL = 'http://localhost:3031';
       
       socketConnection = io(socketURL, {
-        path: '/socket.io',
+        path: '',
         auth: {
           token
         },
@@ -215,6 +217,27 @@ export const TourLMSProvider = ({ children }) => {
       throw error;
     }
   };
+
+  const getEnrollments = async (token) => {
+    try {
+      const response = await axios.get(`${API_URL}/enrollments/`, {headers: {
+        'x-auth-token': token
+      }});
+
+      console.log(`enrollment response: ${response}`);
+      return response.data;
+
+    }
+    catch (error) {
+      console.error(`Error getting enrollment`);
+    }
+  }
+
+  const badgeStuff = async () => {
+    if (enrolledCourses.length > 1) {
+      
+    }
+  }
 
   const loadFacilitatorStats = async () => {
     if (!token) return;
@@ -320,12 +343,19 @@ export const TourLMSProvider = ({ children }) => {
         await loadFacilitatorStudents();
       }
       if (newUser?.role === 'student' || newUser?.role === 'learner') {
-        clg('checking leaners courses')
+        clg('checking learners courses')
         const learnerResponse = await axios.get(`${API_URL}/learner/courses`, {
           headers: { 'x-auth-token': tok }
         });
         console.log('Learner courses:', learnerResponse.data);
-        await setEnrolledCourses(learnerResponse.data);
+        setEnrolledCourses(learnerResponse.data);
+
+        const learnerEnrollments = await getEnrollments(token);
+        if (learnerEnrollments){
+          setEnrollments(learnerEnrollments);
+        }
+
+        console.log(`enrollments: ${enrollments}`);
       }
       
       // For both students and facilitators, load all courses
@@ -336,6 +366,7 @@ export const TourLMSProvider = ({ children }) => {
       setCoursesHub(allCoursesResponse.data);
       
       // For students, also get enrolled courses
+
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -429,6 +460,8 @@ export const TourLMSProvider = ({ children }) => {
     setCoursesHub,
     enrolledCourses,
     setEnrolledCourses,
+    enrollments,
+    setEnrollments,
     facilitatorStats,
     facilitatorStudents,
     register,

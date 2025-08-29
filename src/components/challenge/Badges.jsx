@@ -5,12 +5,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useSocket } from '@/services/socketService';
 import { motion, AnimatePresence } from "framer-motion";
 import { badgeService } from '@/services/badgeService';
+import { useTourLMS } from "../../contexts/TourLMSContext";
+import { StatsIncrementer } from "./StatsIncrementer";
 
 export const Badges = ({ stats = {} }) => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [showDetails, setShowDetails] = useState(null);
   const [unlockedBadges, setUnlockedBadges] = useState(new Set());
   const [currentStats, setCurrentStats] = useState(badgeService.getStats());
+  const { user } = useTourLMS();
   const { toast } = useToast();
   const socket = useSocket();
 
@@ -22,6 +25,61 @@ export const Badges = ({ stats = {} }) => {
 
   const unlockedCount = BADGES.filter(badge => badge.unlock(currentStats)).length;
   const totalBadges = BADGES.length;
+  console.log(badgeService.getStats());
+
+  /*
+  useEffect(() => {
+
+    const fetchBadges = async () => {
+      const response = await axios.get(`http://localhost:3000/users/${user.id}/badges`);
+      const badges = response.data;
+    
+      return badges;
+    }
+
+    const handleBadgeUnlock = (badgeId) => {
+      const badge = BADGES.find(b => b.id === badgeId);
+      if (badge && !unlockedBadges.has(badgeId)) {
+        setUnlockedBadges(prev => new Set([...prev, badgeId]));
+        //setCurrentStats(badgeService.getStats());
+        toast({
+          title: "New Badge Unlocked! 🎉",
+          description: `${badge.name}: ${badge.description}`,
+          duration: 5000,
+        });
+      }
+    };
+
+    async function run() {
+
+      // update stats
+      setCurrentStats(prev => ({...prev, totalXp: 400}));
+
+      const userBadges = await fetchBadges();
+      console.log(`user badges: ${userBadges}`);
+
+      for (let badge of userBadges) {
+        switch (badge) {
+          case 'Milestone-100':
+            handleBadgeUnlock('xp-100');
+            break;
+          case 'Milestone-250':
+            handleBadgeUnlock('xp-250');
+            break;
+          case 'Milestone-500':
+            handleBadgeUnlock('xp-500');
+            break;
+          case 'Milestone-1000':
+            handleBadgeUnlock('xp-1000');
+            break;
+          
+        }
+      }
+    }
+    run();
+  }, []);
+  */
+  
 
   // Initialize badge service with socket
   useEffect(() => {
@@ -33,8 +91,9 @@ export const Badges = ({ stats = {} }) => {
   // Update stats in badge service and local state
   useEffect(() => {
     badgeService.updateStats(stats);
-    setCurrentStats(badgeService.getStats());
-  }, [stats]);
+    //setCurrentStats(badgeService.getStats());
+    setCurrentStats(prev => ({...prev, totalXp: 400}));
+  }, []);
 
   // Check for newly unlocked badges
   useEffect(() => {
@@ -152,7 +211,7 @@ export const Badges = ({ stats = {} }) => {
                 <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
                   <div 
                     className="bg-blue-500 h-1.5 rounded-full" 
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${unlocked ? 100 : progress}%` }}
                   ></div>
                 </div>
                 
@@ -179,7 +238,9 @@ export const Badges = ({ stats = {} }) => {
             );
           })}
         </AnimatePresence>
+        <StatsIncrementer currentStats={currentStats} setCurrentStats={setCurrentStats}></StatsIncrementer>
       </div>
+
     </div>
   );
 };

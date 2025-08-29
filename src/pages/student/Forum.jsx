@@ -362,7 +362,7 @@ const Forum = () => {
   useEffect(() => {
     if (!token || useMockData) return;
 
-    const socketInstance = io('https://africanapi.onrender.com', {
+    const socketInstance = io('http://localhost:3031', {
       auth: { token },
     });
 

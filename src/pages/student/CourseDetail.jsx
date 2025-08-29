@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTourLMS } from '@/contexts/TourLMSContext';
-import { checkEnrollmentStatus } from '@/api/courseService';
+import { getEnrollment } from '@/api/courseService';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen, FileText, MessageSquare } from 'lucide-react';
@@ -14,7 +14,7 @@ import { image_01, image_02 } from '../../js/Data';
 
 const CourseDetail = () => {
   const { id } = useParams();
-  const { user, token, CoursesHub,enrolledCourses } = useTourLMS();
+  const { user, token, CoursesHub, enrolledCourses, enrollments, setEnrollments } = useTourLMS();
   const { toast } = useToast();
   const [course, setCourse] = useState(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -35,14 +35,21 @@ const CourseDetail = () => {
           // Check enrollment status from server if user is logged in
           if (token) {
             try {
-              const enrollmentStatus = foundCourse.enrolledStudents.find(id=>id==user.id);
-        setIsEnrolled(enrollmentStatus?true:false);
-        if(enrollmentStatus&&ocn(enrolledCourses)){
-          const mycourse=enrolledCourses?.find(c => c._id === id || c.key === id);
-          setCourse(mycourse);
-        setLoading(false);
-        }
-        if(!enrollmentStatus&&foundCourse)setCourse(foundCourse);
+              const enrollmentStatus = user.enrolledCourses.find(id=>id === foundCourse.key);
+              console.log(`enrollment status: ${enrollmentStatus}`);
+              setIsEnrolled(enrollmentStatus?true:false);
+              if(enrollmentStatus&&ocn(enrolledCourses)){
+                const mycourse=enrolledCourses?.find(c => c._id === id || c.key === id);
+
+                const enrollment = enrollments.find(enrollment => enrollment.course === mycourse.key);
+
+                clg(`found enrollment: ${enrollments}`);
+                mycourse.enrollment = enrollment;
+                clg(`found course: ${mycourse}`);
+                setCourse(mycourse);
+              setLoading(false);
+              }
+              if(!enrollmentStatus&&foundCourse)setCourse(foundCourse);
         
               
               // If user is enrolled, default to content tab
@@ -56,6 +63,7 @@ const CourseDetail = () => {
           }else{
             clg('token nodey');
             if(id)localStorage.setItem('waitingCourse',id)
+            
             setCourse(foundCourse);
             setLoading(false);
           }

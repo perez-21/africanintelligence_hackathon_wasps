@@ -4,7 +4,10 @@ import { Leaderboard } from "../../components/challenge/Leaderboard";
 import { useTourLMS } from "../../contexts/TourLMSContext";
 import { useSocket } from "../../services/socketService";
 import { XPProgress } from "../../components/challenge/XPProgress";
-import { Badge } from "../../components/ui/Badge";
+// import { Badge } from "../../components/ui/Badge";
+import axios from "axios";
+import { io } from "socket.io-client";
+
 
 const TABS = [
   { key: "global", label: "Global", icon: "🌍" },
@@ -38,6 +41,23 @@ const generateUsers = (count, isWeekly = false) => {
     weeklyProgress: isWeekly ? Math.floor(Math.random() * 100) : null
   })).sort((a, b) => b.xp - a.xp);
 };
+
+const fetchGlobalLeaderboard = async () => {
+  const response = await axios.get('http://localhost:3000/leaderboard');
+  console.log(response);
+  const board = response.data.map((element) => ({
+    userId: element.userId,
+    name: "Name",
+    xp: element.score,
+    level: 10,
+    avatar: `https://i.pravatar.cc/150`,
+    isPremium: false,
+    xpChange: null,
+    weeklyProgress: null,
+  }));
+  console.log(board);
+  return board;
+}
 
 const generateCourses = () => [
   { id: "math101", name: "Mathematics Fundamentals" },
@@ -74,16 +94,17 @@ export default function LeaderboardPage() {
     isPremium: true
   };
 
-  useEffect(() => {
+  useEffect(async () => {
     setIsLoading(true);
     
     // Simulate API call delay
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       let newData = [];
       
       switch(tab) {
         case "global":
-          newData = generateUsers(20);
+          // newData = generateUsers(20);
+          newData = await fetchGlobalLeaderboard();
           break;
         case "weekly":
           newData = generateUsers(15, true);
@@ -104,6 +125,15 @@ export default function LeaderboardPage() {
     
     return () => clearTimeout(timer);
   }, [tab, timeRange, selectedCourse]);
+
+  // socket connection
+  const ioClient = io('http://localhost:3001', {auth: {userId: user.id}});
+  ioClient.on('connected', (d) => console.log('connected', d));
+  ioClient.on('score.updated', (evt) => {
+    console.log('score updated', evt);
+    // update score UI
+  });
+
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">

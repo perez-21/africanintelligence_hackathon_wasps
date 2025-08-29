@@ -220,7 +220,7 @@ const VideoPlayer = ({
 
   // Function to track watch time for YouTube videos
   const trackYouTubeWatchTime = (initialDuration) => {
-    setDuration(initialDuration);
+    setDuration(initialDuration - 1);
     const interval = setInterval(() => {
       if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
         setWatchTime(prev => {

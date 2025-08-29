@@ -13,6 +13,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
+import { badgeService } from '../../services/badgeService';
 
 const CourseContent = ({ course }) => {
   const [completedContent, setCompletedContent] = useState({});
@@ -25,6 +26,7 @@ const CourseContent = ({ course }) => {
     totalQuizzes: 0,
     lastActivity: 'Today'
   });
+  const [courseCompleted, setCourseCompleted] = useState(progressStats.completedContent === progressStats.totalContent && progressStats.completedContent > 0);
   const { token, API_URL } = useTourLMS();
   const { toast } = useToast();
   const [showQuiz, setShowQuiz] = useState(false);
@@ -96,6 +98,23 @@ const CourseContent = ({ course }) => {
     window.open(gmailUrl, '_blank');
   };
 
+  useEffect(() => {
+  setCourseCompleted(
+    progressStats.completedContent === progressStats.totalContent &&
+    progressStats.completedContent > 0
+  );
+}, [progressStats]);
+
+  useEffect(() => {
+    if (courseCompleted) {
+
+      badgeService.updateStats({coursesCompleted: badgeService.getStats().coursesCompleted + 1});
+      //badgeService.checkCourseBadges();
+      console.log(badgeService.getStats())
+    }
+  }, [courseCompleted])
+
+  
   useEffect(() => {
     if (course && course.enrollment && course.enrollment.moduleProgress) {
       const completed = {};
@@ -174,6 +193,7 @@ const CourseContent = ({ course }) => {
       }));
     }
     clg(data);
+
   };
 
   // Calculate progress stats
@@ -199,6 +219,10 @@ const CourseContent = ({ course }) => {
       totalQuizzes,
       lastActivity: 'Today'
     });
+
+    console.log(progressStats.completedContent, progressStats.totalContent);
+
+
   }, [course, completedContent]);
 
   // Update progress stats when content completion changes
@@ -226,6 +250,7 @@ const CourseContent = ({ course }) => {
         ...prev,
         [key]: true,
       }));
+      
 
       const response = await fetch(`${API_URL}/learner/courses/${course.key}/modules/${moduleId}/contents/${contentId}/complete`, {
         method: 'POST',

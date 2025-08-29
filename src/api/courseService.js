@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { clg } from '../lib/basic';
+import { id } from 'date-fns/locale';
 
 // API base URL
-const API_URL = 'https://africanapi.onrender.com/api'//'http://localhost:7000/api'//;
+const API_URL = 'http://localhost:3031/api';
 
 // Configure axios defaults
 const configureAxios = (token) => {
@@ -195,12 +196,24 @@ export const submitQuiz = async (courseId, moduleId, answers, token) => {
   }
 };
 
+export const getEnrollment = async (courseKey, token) => {
+  configureAxios(token);
+  try {
+    const response = await axios.get(`${API_URL}/enrollments/`, {headers: {
+      'x-auth-token': token
+    }});
+  }
+  catch (error) {
+    console.error(`Error getting enrollment`);
+  }
+}
+
 // Enroll in a course
 export const enrollInCourse = async (courseId, token) => {
   configureAxios(token);
   try {
 clg('enroll id - ',courseId);    
-    const response = await axios.post(`${API_URL}/learner/courses/${courseId}/enroll`, {courseId}, {
+    const response = await axios.post(`${API_URL}/courses/${courseId}/enroll`, {courseId}, {
       headers: {
         'x-auth-token': token
       }

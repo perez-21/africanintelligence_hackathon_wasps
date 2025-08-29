@@ -1,5 +1,5 @@
 // BadgesPage.jsx (enhanced page)
-import React from "react";
+import React, { useEffect } from "react";
 import { useTourLMS } from "../../contexts/TourLMSContext";
 import { Badges } from "../../components/challenge/Badges";
 

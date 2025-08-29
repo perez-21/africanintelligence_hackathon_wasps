@@ -10,6 +10,7 @@ import { useTourLMS } from '@/contexts/TourLMSContext';
 import { useToast } from '@/hooks/use-toast';
 import { getCourseForumPosts, createForumPost, addCommentToPost, toggleLikePost } from '@/api/forumService';
 import io from 'socket.io-client';
+import { badgeService } from '../../services/badgeService';
 
 const CourseDiscussion = ({ courseId }) => {
   const [title, setTitle] = useState('');
@@ -147,6 +148,8 @@ const CourseDiscussion = ({ courseId }) => {
     } finally {
       setIsPosting(false);
     }
+
+    badgeService.handleXpEarned(20);
   };
   
   // Handle comment submission

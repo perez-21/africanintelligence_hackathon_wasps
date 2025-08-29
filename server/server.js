@@ -3,6 +3,8 @@ const cors = require("cors");
 const { MongoClient } = require("mongodb");
 const path = require("path");
 const auth = require("./middleware/auth");
+const activityRoutes = require("./routes/activity");
+const enrollmentRoutes = require("./routes/enrollment");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/adminRoutes");
 const facilitatorRoutes = require("./routes/facilitatorRoutes");
@@ -14,6 +16,7 @@ const uploadRoutes = require("./routes/upload");
 const adminServices = require("./services/adminServices");
 const webpush = require("web-push");
 const { clg } = require("./routes/basics");
+const { setupSocket }  = require("./socket");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerOptions = require("./swagger");
@@ -54,7 +57,8 @@ app.use(
 );
 
 // Connect to MongoDB
-const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/lms";
+const mongoURI = process.env.MONGODB_URI || "mongodb://localhost:27017/lms";
+
 const client = new MongoClient(mongoURI);
 
 async function startServer() {
@@ -77,6 +81,8 @@ async function startServer() {
     app.use("/api/forum", forumRoutes);
     app.use("/api/notifications", notificationRoutes);
     app.use("/api/upload", uploadRoutes);
+    app.use("/api/activities", activityRoutes);
+    app.use("/api/enrollments", enrollmentRoutes);
 
     // Serve static files in production
     if (process.env.NODE_ENV === "production") {
@@ -87,10 +93,13 @@ async function startServer() {
     }
 
     // Start the server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`);
     });
+
+    // setup socket
+    setupSocket(server, app.locals.db);
   } catch (error) {
     console.error("Error starting server:", error);
     process.exit(1);

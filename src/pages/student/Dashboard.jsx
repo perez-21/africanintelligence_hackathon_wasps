@@ -184,7 +184,7 @@ const Dashboard = () => {
     };
 
     if (user?._id) {
-      fetchUserStats();
+      //fetchUserStats();
     }
   }, [user?._id, API_URL, token, userXP, awardXP]);
 
@@ -347,9 +347,7 @@ const Dashboard = () => {
       </motion.section>
       
       {/* XP Progress Section */}
-      <div className="mb-8">
         <XPProgress userId={user?._id} />
-      </div>
       
       {/* Course Progress Section */}
       <section className="space-y-6">

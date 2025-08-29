@@ -7,6 +7,386 @@ let sendEnrollmentNotification = require('../utils/mailer');
 let { sendEnrollmentNotification: sendPushNotification } = require('./notification');
 let { clg, ocn, enrollmentProgress, parse } = require('./basics');
 
+/**
+ * @swagger
+ * tags:
+ *   name: Learner
+ *   description: Endpoints for learner course management
+ */
+
+/**
+ * @swagger
+ * /learner/courses:
+ *   get:
+ *     summary: Get all courses the student is enrolled in
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of enrolled courses with progress
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CourseWithProgress'
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}:
+ *   get:
+ *     summary: Get a specific enrolled course with progress
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The course ID
+ *     responses:
+ *       200:
+ *         description: Course details with enrollment progress
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CourseWithProgress'
+ *       404:
+ *         description: Course not found
+ *       403:
+ *         description: Not enrolled in this course
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/status:
+ *   get:
+ *     summary: Check enrollment status for a course
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The course ID
+ *     responses:
+ *       200:
+ *         description: Enrollment status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 isEnrolled:
+ *                   type: boolean
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/enroll:
+ *   post:
+ *     summary: Enroll in a course
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The course ID
+ *     responses:
+ *       201:
+ *         description: Successfully enrolled in course
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 enrollmentId:
+ *                   type: string
+ *       404:
+ *         description: Course not found
+ *       400:
+ *         description: Already enrolled
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/modules/{moduleId}/quiz/submit:
+ *   post:
+ *     summary: Submit quiz for a module
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: moduleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quizData:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Quiz submitted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 progress:
+ *                   type: number
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/modules/{moduleId}/contents/{contentId}/complete:
+ *   post:
+ *     summary: Mark content as completed
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: moduleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: contentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Content marked as completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 progress:
+ *                   type: number
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/progress:
+ *   put:
+ *     summary: Update course progress
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               moduleId:
+ *                 type: string
+ *               contentId:
+ *                 type: string
+ *               completed:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Progress updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 progress:
+ *                   type: number
+ *                 moduleProgress:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
+
+/**
+ * @swagger
+ * /learner/sync-enrollments:
+ *   post:
+ *     summary: Fix and sync enrollment data
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Enrollment data synchronized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalEnrollments:
+ *                       type: number
+ *                     updatedStudents:
+ *                       type: number
+ *                     updatedFacilitators:
+ *                       type: number
+ *                     updatedCourses:
+ *                       type: number
+ */
+
+/**
+ * @swagger
+ * /learner/stats:
+ *   get:
+ *     summary: Get learning stats for the user
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Learning statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalEnrolled:
+ *                   type: number
+ *                 certificatesEarned:
+ *                   type: number
+ *                 completedCourses:
+ *                   type: number
+ *                 learningStreak:
+ *                   type: number
+ *                 learningGoals:
+ *                   type: object
+ *                   properties:
+ *                     completed:
+ *                       type: number
+ *                     total:
+ *                       type: number
+ *                 lastActive:
+ *                   type: string
+ *                   format: date-time
+ */
+
+/**
+ * @swagger
+ * /learner/courses/{courseId}/watch-time:
+ *   post:
+ *     summary: Track video watch time for a course content
+ *     tags: [Learner]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               moduleId:
+ *                 type: string
+ *               contentId:
+ *                 type: string
+ *               watchTime:
+ *                 type: number
+ *               duration:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Watch time recorded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 watchPercentage:
+ *                   type: number
+ *                 completed:
+ *                   type: boolean
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     CourseWithProgress:
+ *       type: object
+ *       properties:
+ *         key:
+ *           type: string
+ *         title:
+ *           type: string
+ *         facilitatorName:
+ *           type: string
+ *         progress:
+ *           type: number
+ *         enrolledAt:
+ *           type: string
+ *           format: date-time
+ *         lastAccessedAt:
+ *           type: string
+ *           format: date-time
+ *         certificateIssued:
+ *           type: boolean
+ *         enrollment:
+ *           type: object
+ */
+
+
+
 router.get('/courses', auth, roleAuth(['student']), async (req, res) => {
   try {
     let db = req.app.locals.db;
@@ -114,6 +494,7 @@ router.get('/courses/:courseId', auth, roleAuth(['student']), async (req, res) =
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 // Check enrollment status for a course
 router.get('/courses/:courseId/status', auth, roleAuth(['student']), async (req, res) => {
@@ -265,6 +646,30 @@ router.post('/courses/:courseId/enroll',auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error enrolling in course:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/courses/:courseId/enrollment', auth, roleAuth(['student']), async (req, res) => {
+  try {
+    const courseKey = req.params.courseId;
+    const learnerId = req.user.userId;
+    let db = req.app.locals.db;
+
+    console.log(`stuff: ${courseKey}, ${learnerId}`)
+    let enrollment = await db.collection('enrollments').findOne({ 
+      learner: new ObjectId(learnerId),
+      course: courseKey
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({message: "Enrollment not found"})
+    }
+
+    res.status(200).json(enrollment);
+  }
+  catch(error) {
+    console.error('Error fetching enrollments:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
