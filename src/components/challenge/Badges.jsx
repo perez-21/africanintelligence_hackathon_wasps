@@ -92,7 +92,7 @@ export const Badges = ({ stats = {} }) => {
   useEffect(() => {
     badgeService.updateStats(stats);
     //setCurrentStats(badgeService.getStats());
-    setCurrentStats(prev => ({...prev, totalXp: 400}));
+    setCurrentStats(prev => ({...prev, totalXp: badgeService.getStats().totalXp + 100}));
   }, []);
 
   // Check for newly unlocked badges

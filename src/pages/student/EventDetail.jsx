@@ -115,7 +115,7 @@ const EventDetail = () => {
         
         setIsParticipant(true);
         setParticipantCount(prev => prev + 1);
-        badgeService.handleXpEarned(30);
+        badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 30});
       }
       
       // Refresh event data

@@ -9,6 +9,7 @@ import { subscribeToCourseNotifications } from '@/api/notificationService';
 import { useToast } from '@/hooks/use-toast';
 import EnrollmentDialog from './EnrollmentDialog';
 import { clg } from '../../lib/basic';
+import { badgeService } from '../../services/badgeService';
 
 const EnrollButton = ({ course, isEnrolled, className }) => {
   const [loading, setLoading] = useState(false);
@@ -69,6 +70,7 @@ const EnrollButton = ({ course, isEnrolled, className }) => {
           setCoursesHub(updatedCourses);
         }
 
+        badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 20});
         navigate(`/student/courses/${course.key}`);
       
       },3000);

@@ -149,7 +149,7 @@ const CourseDiscussion = ({ courseId }) => {
       setIsPosting(false);
     }
 
-    badgeService.handleXpEarned(20);
+    badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 20});
   };
   
   // Handle comment submission

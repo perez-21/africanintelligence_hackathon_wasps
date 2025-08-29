@@ -53,7 +53,7 @@ const Challenges = () => {
     });
     setSelectedChallenge(null);
     setAttemptingChallenge(activeChallenges.find(c => c.id === challengeId));
-    badgeService.handleXpEarned(10);
+    badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 20});
   };
 
   const handleSubmitSolution = async (challengeId, submission) => {
@@ -65,7 +65,7 @@ const Challenges = () => {
       title: "Solution Submitted!",
       description: "Your solution has been submitted successfully.",
     });
-    badgeService.handleXpEarned(50);
+    badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 50});
   };
 
   const renderChallengeCard = (challenge, type) => {

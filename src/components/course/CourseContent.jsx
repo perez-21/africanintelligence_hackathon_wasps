@@ -108,7 +108,7 @@ const CourseContent = ({ course }) => {
   useEffect(() => {
     if (courseCompleted) {
 
-      badgeService.updateStats({coursesCompleted: badgeService.getStats().coursesCompleted + 1});
+      badgeService.updateStats({coursesCompleted: badgeService.getStats().coursesCompleted + 1, totalXp: badgeService.getStats().totalXp + 150});
       //badgeService.checkCourseBadges();
       console.log(badgeService.getStats())
     }
@@ -193,6 +193,7 @@ const CourseContent = ({ course }) => {
       }));
     }
     clg(data);
+    badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 35});
 
   };
 
@@ -290,6 +291,7 @@ const CourseContent = ({ course }) => {
         description: "Your progress has been saved.",
         variant: "default",
       });
+
     } catch (error) {
       console.error('Error marking content as completed:', error);
       toast({
