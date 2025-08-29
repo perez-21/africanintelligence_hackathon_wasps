@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // API base URL
-const API_URL = 'https://africanapi.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://africanapi.onrender.com/api';
 
 // Configure axios defaults
 const configureAxios = (token) => {

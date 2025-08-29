@@ -20,7 +20,7 @@ const ContentSubmissionForm = ({ courseId, onSubmission }) => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/content/submit', {
+      const response = await fetch('/content/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

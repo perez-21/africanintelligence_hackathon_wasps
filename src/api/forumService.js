@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:7000/api'//'https://africanapi.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:7000/api'//'https://africanapi.onrender.com/api';
 
 // Forum post services
 export const getCourseForum = async (courseId, token) => {

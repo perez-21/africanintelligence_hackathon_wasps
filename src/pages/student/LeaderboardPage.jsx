@@ -103,8 +103,8 @@ export default function LeaderboardPage() {
       
       switch(tab) {
         case "global":
-          // newData = generateUsers(20);
-          newData = await fetchGlobalLeaderboard();
+          newData = generateUsers(20);
+          //newData = await fetchGlobalLeaderboard();
           break;
         case "weekly":
           newData = generateUsers(15, true);

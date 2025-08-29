@@ -6,7 +6,7 @@ import { io } from 'socket.io-client';
 import notificationService from '../services/notificationService';
 import { badgeService } from '../services/badgeService';
 
-const API_URL = 'http://localhost:3031/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3031/api';
 const clientID='NOTIFICATION-CLIENT-ID'
 
 const TourLMSContext = createContext(null);
@@ -139,7 +139,7 @@ export const TourLMSProvider = ({ children }) => {
     
     if (token) {
       // Initialize socket connection
-      const socketURL = 'http://localhost:3031';
+      const socketURL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3031';
       
       socketConnection = io(socketURL, {
         path: '',

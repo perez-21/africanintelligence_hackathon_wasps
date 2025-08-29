@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import axios from 'axios';
 
 // API base URL
-const API_URL = 'http://194.164.76.213:7000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://194.164.76.213:7000/api';
 
 interface User {
   id: number | string;

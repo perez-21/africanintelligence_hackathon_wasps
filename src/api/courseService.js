@@ -3,7 +3,8 @@ import { clg } from '../lib/basic';
 import { id } from 'date-fns/locale';
 
 // API base URL
-const API_URL = 'http://localhost:3031/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3031/api';
+
 
 // Configure axios defaults
 const configureAxios = (token) => {
