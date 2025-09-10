@@ -20,8 +20,9 @@ const setupSocket = (server, db) => {
       }
 
       const decoded = jwt.verify(token, vapid_private_key);
+      
       const user = await db.collection('users').findOne(
-        { _id: new ObjectId(decoded.id) },
+        { _id: new ObjectId(decoded.userId) },
         { projection: { _id: 1, name: 1, email: 1 } }
       );
 
