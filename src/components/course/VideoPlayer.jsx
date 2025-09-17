@@ -54,7 +54,7 @@ const VideoPlayer = ({
   videoDescription,
   onWatchProgress,
   onClose,
-  requiredWatchPercent = 90
+  requiredWatchPercent = 70
 }) => {
   const { token, API_URL, setToken } = useTourLMS();
   const { toast } = useToast();
@@ -225,7 +225,7 @@ const VideoPlayer = ({
       if (playerRef.current && playerRef.current.getPlayerState() === window.YT.PlayerState.PLAYING) {
         setWatchTime(prev => {
           const newWatchTime = prev + 5;
-          const percent = initialDuration > 0 ? (newWatchTime / initialDuration) * 100 : 0;
+          const percent = initialDuration > 0 ? (newWatchTime / (initialDuration - 1)) * 100 : 0;
           setWatchPercent(percent);
           clg('YouTube watch time update:', { watchTime: newWatchTime, percent, duration: initialDuration });
 

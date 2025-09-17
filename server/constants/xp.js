@@ -1,0 +1,12 @@
+
+const COURSE_ENROLLMENT = 10;
+const COURSE_COMPLETION = 150;
+const SUBMIT_QUIZ = 10;
+
+
+
+module.exports = {
+  COURSE_ENROLLMENT,
+  COURSE_COMPLETION,
+  SUBMIT_QUIZ,
+};

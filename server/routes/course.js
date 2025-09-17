@@ -6,6 +6,8 @@ let roleAuth = require("../middleware/roleAuth");
 let { datemap, clg } = require("./basics");
 const { body } = require("express-validator");
 const { v4: uuidv4 } = require("uuid");
+const statsService = require("../services/statService");
+const XP_CONSTANTS = require("../constants/xp");
 
 /**
  * @swagger
@@ -1450,11 +1452,21 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
       _id: result.insertedId,
     });
 
+    try {
+      statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.COURSE_ENROLLMENT);
+    }
+    catch (error) {
+      console.error("Error updating user XP:", error);
+    }
+
     res.status(201).json(insertedEnrollment);
+
   } catch (error) {
     console.error("Error enrolling in course:", error);
     res.status(500).json({ message: "Server error during enrollment" });
   }
+
+
 });
 
 // Update module progress

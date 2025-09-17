@@ -4,15 +4,15 @@ import { BADGES, BADGE_CATEGORIES, getBadgeProgress } from "../../data/badges";
 import { useToast } from "@/hooks/use-toast";
 import { useSocket } from '@/services/socketService';
 import { motion, AnimatePresence } from "framer-motion";
-import { badgeService } from '@/services/badgeService';
+import BadgeHelper from '@/services/badgeHelper';
 import { useTourLMS } from "../../contexts/TourLMSContext";
 import { StatsIncrementer } from "./StatsIncrementer";
 
 export const Badges = ({ stats = {} }) => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [showDetails, setShowDetails] = useState(null);
-  const [unlockedBadges, setUnlockedBadges] = useState(new Set());
-  const [currentStats, setCurrentStats] = useState(badgeService.getStats());
+  // const [studentStats, setStudentStats] = useState(BadgeHelper.getStats());
+  const { studentStats, setStudentStats, studentBadges, setStudentBadges } = useTourLMS();
   const { user } = useTourLMS();
   const { toast } = useToast();
   const socket = useSocket();
@@ -23,125 +23,63 @@ export const Badges = ({ stats = {} }) => {
     ? BADGES 
     : BADGES.filter(badge => badge.category === activeCategory);
 
-  const unlockedCount = BADGES.filter(badge => badge.unlock(currentStats)).length;
+  const unlockedCount = BADGES.filter(badge => badge.unlock(studentStats)).length;
   const totalBadges = BADGES.length;
-  console.log(badgeService.getStats());
 
-  /*
-  useEffect(() => {
-
-    const fetchBadges = async () => {
-      const response = await axios.get(`http://localhost:3000/users/${user.id}/badges`);
-      const badges = response.data;
-    
-      return badges;
-    }
-
-    const handleBadgeUnlock = (badgeId) => {
-      const badge = BADGES.find(b => b.id === badgeId);
-      if (badge && !unlockedBadges.has(badgeId)) {
-        setUnlockedBadges(prev => new Set([...prev, badgeId]));
-        //setCurrentStats(badgeService.getStats());
-        toast({
-          title: "New Badge Unlocked! 🎉",
-          description: `${badge.name}: ${badge.description}`,
-          duration: 5000,
-        });
-      }
-    };
-
-    async function run() {
-
-      // update stats
-      setCurrentStats(prev => ({...prev, totalXp: 400}));
-
-      const userBadges = await fetchBadges();
-      console.log(`user badges: ${userBadges}`);
-
-      for (let badge of userBadges) {
-        switch (badge) {
-          case 'Milestone-100':
-            handleBadgeUnlock('xp-100');
-            break;
-          case 'Milestone-250':
-            handleBadgeUnlock('xp-250');
-            break;
-          case 'Milestone-500':
-            handleBadgeUnlock('xp-500');
-            break;
-          case 'Milestone-1000':
-            handleBadgeUnlock('xp-1000');
-            break;
-          
-        }
-      }
-    }
-    run();
-  }, []);
-  */
-  
-
-  // Initialize badge service with socket
-  useEffect(() => {
-    if (socket) {
-      badgeService.initialize(socket);
-    }
-  }, [socket]);
-
-  // Update stats in badge service and local state
-  useEffect(() => {
-    badgeService.updateStats(stats);
-    //setCurrentStats(badgeService.getStats());
-    setCurrentStats(prev => ({...prev, totalXp: badgeService.getStats().totalXp + 100}));
-  }, []);
-
-  // Check for newly unlocked badges
   useEffect(() => {
     const checkNewBadges = () => {
       BADGES.forEach(badge => {
-        if (badge.unlock(currentStats) && !unlockedBadges.has(badge.id)) {
-          setUnlockedBadges(prev => new Set([...prev, badge.id]));
+        if (badge.unlock(studentStats) && !studentBadges.has(badge.id)) {
+          setStudentBadges(prev => new Set([...prev, badge.id]));
           toast({
             title: "New Badge Unlocked! 🎉",
             description: `${badge.name}: ${badge.description}`,
             duration: 5000,
           });
+          try {
+            // Notify server of new badge
+            if (socket) {
+              socket.emit('badge:unlocked', badge.id);
+            }
+          }
+          catch (error) {
+            console.error('Error emitting badge unlock:', error);
+          }
         }
       });
     };
 
     checkNewBadges();
-  }, [currentStats, unlockedBadges, toast]);
+  }, [studentStats, toast]);
 
   // Listen for real-time badge updates
-  useEffect(() => {
-    if (!socket) return;
+  // useEffect(() => {
+  //   if (!socket) return;
 
-    const handleBadgeUnlock = (badgeId) => {
-      const badge = BADGES.find(b => b.id === badgeId);
-      if (badge && !unlockedBadges.has(badgeId)) {
-        setUnlockedBadges(prev => new Set([...prev, badgeId]));
-        setCurrentStats(badgeService.getStats());
-        toast({
-          title: "New Badge Unlocked! 🎉",
-          description: `${badge.name}: ${badge.description}`,
-          duration: 5000,
-        });
-      }
-    };
+  //   const handleBadgeUnlock = (badgeId) => {
+  //     const badge = BADGES.find(b => b.id === badgeId);
+  //     if (badge && !studentBadges.has(badgeId)) {
+  //       setStudentBadges(prev => new Set([...prev, badgeId]));
+  //       setStudentStats(BadgeHelper.getStats());
+  //       toast({
+  //         title: "New Badge Unlocked! 🎉",
+  //         description: `${badge.name}: ${badge.description}`,
+  //         duration: 5000,
+  //       });
+  //     }
+  //   };
 
-    socket.on('badge:unlocked', handleBadgeUnlock);
+  //   socket.on('badge:unlocked', handleBadgeUnlock);
 
-    return () => {
-      socket.off('badge:unlocked', handleBadgeUnlock);
-    };
-  }, [socket, unlockedBadges, toast]);
+  //   return () => {
+  //     socket.off('badge:unlocked', handleBadgeUnlock);
+  //   };
+  // }, [socket, studentBadges, toast]);
 
   // Check time-based badges periodically
   useEffect(() => {
     const checkTimeBadges = () => {
-      badgeService.checkTimeBasedBadges();
-      setCurrentStats(badgeService.getStats());
+      BadgeHelper.checkTimeBasedBadges(studentStats, studentBadges);
     };
 
     const interval = setInterval(checkTimeBadges, 60000); // Check every minute
@@ -181,8 +119,8 @@ export const Badges = ({ stats = {} }) => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <AnimatePresence>
           {filteredBadges.map(badge => {
-            const unlocked = badge.unlock(currentStats);
-            const progress = Math.min(100, Math.max(0, getBadgeProgress(badge, currentStats)));
+            const unlocked = badge.unlock(studentStats);
+            const progress = Math.min(100, Math.max(0, badge.progress(studentStats)));
             
             return (
               <motion.div
@@ -238,7 +176,7 @@ export const Badges = ({ stats = {} }) => {
             );
           })}
         </AnimatePresence>
-        <StatsIncrementer currentStats={currentStats} setCurrentStats={setCurrentStats}></StatsIncrementer>
+        <StatsIncrementer studentStats={studentStats} setStudentStats={setStudentStats}></StatsIncrementer>
       </div>
 
     </div>

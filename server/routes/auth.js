@@ -9,6 +9,7 @@ const { sendWelcomeEmail } = require("../utils/mailer");
 const { vapid_private_key, clientID } = require("../configs/config");
 const { clg } = require("./basics");
 const { body, validationResult } = require("express-validator");
+const { BADFLAGS } = require("dns");
 
 const googleClient = new OAuth2Client(clientID);
 
@@ -756,6 +757,65 @@ router.get("/me", auth, async (req, res) => {
       .collection("users")
       .findOne({ _id: userId }, { projection: { password: 0 } });
 
+    // Normalize dates to start of day
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    const lastActiveMidnight = user.lastActive
+      ? new Date(user.lastActive)
+      : null;
+    if (lastActiveMidnight) {
+      lastActiveMidnight.setHours(0, 0, 0, 0);
+    }
+
+    // Only process if user hasn't been active today
+    if (
+      !lastActiveMidnight ||
+      todayMidnight.getTime() > lastActiveMidnight.getTime()
+    ) {
+      if (!lastActiveMidnight) {
+        // First time user - start streak at 1
+        await db.collection("users").updateOne(
+          { _id: userId },
+          {
+            $set: {
+              "stats.currentStreak": 1,
+              lastActive: new Date(),
+            },
+          }
+        );
+      } else {
+        console.log(`times: ${todayMidnight}, ${lastActiveMidnight}`)
+        const timeDifference =
+          todayMidnight.getTime() - lastActiveMidnight.getTime();
+        const dayDifference = Math.floor(
+          timeDifference / (1000 * 60 * 60 * 24)
+        );
+
+        if (dayDifference === 1) {
+          // Continue streak
+          await db.collection("users").updateOne(
+            { _id: userId },
+            {
+              $inc: { "stats.currentStreak": 1 },
+              $set: { lastActive: new Date() },
+            }
+          );
+        } else {
+          // Streak broken - reset to 1
+          await db.collection("users").updateOne(
+            { _id: userId },
+            {
+              $set: {
+                "stats.currentStreak": 1,
+                lastActive: new Date(),
+              },
+            }
+          );
+        }
+      }
+    }
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -778,6 +838,8 @@ router.get("/me", auth, async (req, res) => {
       experience: user.experience || 0,
       certifications: user.certifications || [],
       education: user.education || [],
+      stats: user.stats || {},
+      badges: user.badges || [],
     });
   } catch (error) {
     console.error("Get user error:", error);

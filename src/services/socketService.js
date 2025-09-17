@@ -130,7 +130,7 @@ class SocketService {
 }
 
 // Create a singleton instance
-const socketService = new SocketService();
+export const socketService = new SocketService();
 
 // Custom hook to use the socket service
 export const useSocket = () => {
@@ -143,4 +143,4 @@ export const useSocket = () => {
   return socketService;
 };
 
-export default socketService;
+

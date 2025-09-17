@@ -6,6 +6,13 @@ let { ObjectId } = require('mongodb');
 let sendEnrollmentNotification = require('../utils/mailer');
 let { sendEnrollmentNotification: sendPushNotification } = require('./notification');
 let { clg, ocn, enrollmentProgress, parse } = require('./basics');
+const studentServices = require("../services/studentServices");
+const XP_CONSTANTS = require("../constants/xp");
+const STAT_THRESHOLDS = require("../constants/threshold");
+const statsService = require("../services/statService");
+const statsMiddleware = require("./../middleware/stats");
+
+
 
 /**
  * @swagger
@@ -387,141 +394,263 @@ let { clg, ocn, enrollmentProgress, parse } = require('./basics');
 
 
 
-router.get('/courses', auth, roleAuth(['student']), async (req, res) => {
-  try {
-    let db = req.app.locals.db;
-    let enrollments = await db.collection('enrollments').find({ 
-      studentId: req.user.userId  // Using userId as per standard pattern
-    }).toArray();
-   
-
-    let courseIds = enrollments.map(enrollment => enrollment.courseId);
-    
-    if (courseIds.length === 0) {
-      return res.json([]);
-    }
-    
-    let courses = await db.collection('courses').find({ 
-      key: { $in: courseIds },
-      status: 'published'
-    }).toArray();
-    let facilitatorIds = [...new Set(courses.map(course => 
-          course.facilitator ? new ObjectId(course.facilitator) : null
-        ).filter(id => id !== null))];
-        
-        let facilitators = facilitatorIds.length > 0 
-          ? await db.collection('users')
-              .find({ _id: { $in: facilitatorIds } })
-              .project({ _id: 1, name: 1 })
-              .toArray()
-          : [];
-        
-        let facilitatorMap = {};
-        facilitators.forEach(f => {
-          facilitatorMap[f._id.toString()] = f.name;
-        });;
-        
-    if(ocn(courses))courses=courses.map(crs=>{
-          if(!crs.enrolledStudents)crs.enrolledStudents=[];
-          return crs;
-        })
-    // Merge course data with enrollment progress data
-    let coursesWithProgress = courses.map(course => {
-      let enrollment = enrollments.find(e => e.courseId === course.key);
-      let facilitatorName = course.facilitator && facilitatorMap[course.facilitator] 
-            ? facilitatorMap[course.facilitator] 
-            : 'Unknown';
-      return {
-        ...course,
-        enrollment,facilitatorName,
-        progress: enrollment.progress || 0,
-        enrolledAt: enrollment.enrolledAt,
-        lastAccessedAt: enrollment.lastAccessedAt,
-        certificateIssued: enrollment.certificateIssued || false
-      };
-    });
-    
-    res.json(coursesWithProgress);
-  } catch (error) {
-    console.error('Error fetching enrolled courses:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get a specific enrolled course with progress
-router.get('/courses/:courseId', auth, roleAuth(['student']), async (req, res) => {
+// Most specific routes first
+// Track video watch time
+router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
   try {
     let db = req.app.locals.db;
     let courseId = req.params.courseId;
+    let { moduleId, contentId, watchTime, duration } = req.body;
     
-    // Check if course exists and is published
-    let course = await db.collection('courses').findOne({ 
-      _id: new ObjectId(courseId),
-      status:'published'
-    });
-    
-    if (!course) {
-      return res.status(404).json({ message: 'Course not found' });
+    if (!moduleId || !contentId || watchTime === undefined || duration === undefined) {
+      return res.status(400).json({ message: 'Missing required parameters' });
     }
-    if(!course.enrolledStudents)course.enrolledStudents=[];
+
     // Check if student is enrolled
     let enrollment = await db.collection('enrollments').findOne({
-      courseId: new ObjectId(courseId),
-      studentId: req.user.userId
+      course: courseId,
+      learner: req.user.userId,
     });
     
     if (!enrollment) {
       return res.status(403).json({ message: 'You are not enrolled in this course' });
     }
     
-    // Get facilitator info
-    let facilitator = await db.collection('users').findOne(
-      { _id: new ObjectId(course.facilitator) },
-      { projection: { name: 1, profilePicture: 1, title: 1, bio: 1 } }
+    // Calculate watch percentage
+    let watchPercentage = (watchTime / duration) * 100;
+    
+    // Update module progress with watch time
+    let moduleProgress = enrollment.moduleProgress || [];
+    let moduleIndex = moduleProgress.findIndex(m => m.moduleId === moduleId);
+    
+    if (moduleIndex === -1) {
+      // Module not found, create new entry
+      moduleProgress.push({
+        moduleId,
+        watchData: {
+          [contentId]: {
+            lastWatchTime: watchTime,
+            duration,
+            watchPercentage,
+            completed: watchPercentage >= 90,
+          },
+        },
+      });
+    } else {
+      // Module found, update watch data
+      if (!moduleProgress[moduleIndex].watchData) {
+        moduleProgress[moduleIndex].watchData = {};
+      }
+      
+      moduleProgress[moduleIndex].watchData[contentId] = {
+        lastWatchTime: watchTime,
+        duration,
+        watchPercentage,
+        completed: watchPercentage >= 90,
+      };
+      
+      // If watched 90% or more, automatically mark as completed in completedContent array
+      if (watchPercentage >= 90) {
+        if (!moduleProgress[moduleIndex].completedContent) {
+          moduleProgress[moduleIndex].completedContent = [];
+        }
+        
+        if (!moduleProgress[moduleIndex].completedContent.includes(contentId)) {
+          moduleProgress[moduleIndex].completedContent.push(contentId);
+        }
+      }
+    }
+    
+    // Update enrollment document
+    await db.collection('enrollments').updateOne(
+      { courseId: courseId, studentId: req.user.userId },
+      { 
+        $set: { 
+          moduleProgress,
+          lastAccessedAt: new Date(),
+        },
+      }
     );
     
-    // Return course with enrollment details
-    res.json({
-      ...course,
-      progress: enrollment.progress || 0,
-      moduleProgress: enrollment.moduleProgress || [],
-      enrolledAt: enrollment.enrolledAt,
-      lastAccessedAt: enrollment.lastAccessedAt,
-      facilitatorInfo: facilitator || null
+    res.json({ 
+      message: 'Watch time recorded successfully',
+      watchPercentage,
+      completed: watchPercentage >= 90,
     });
   } catch (error) {
-    console.error('Error fetching enrolled course:', error);
+    console.error('Error tracking video watch time:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-
-// Check enrollment status for a course
-router.get('/courses/:courseId/status', auth, roleAuth(['student']), async (req, res) => {
+// Submit Content Completion Endpoint
+router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete', auth, statsMiddleware.updateLastActive, async (req, res) => {
   try {
     let db = req.app.locals.db;
-    let courseId = req.params.courseId;
-    
-    if (!courseId || courseId === 'undefined' || courseId === 'null') {
-      return res.status(400).json({ message: 'Invalid course ID' });
-    }
-    
+    let { courseId, moduleId, contentId } = req.params;
+    let studentId = req.user.userId;
+
+    console.log('Complete content params:', { courseId, moduleId, contentId, studentId });
+
+    // Find enrollment
     let enrollment = await db.collection('enrollments').findOne({
-      courseId: courseId,
-      studentId: req.user.userId
+      course: courseId,
+      learner: studentId
     });
-    
-    res.json({
-      isEnrolled: !!enrollment
-    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    // Find or create moduleProgress entry
+    let moduleProgIndex = enrollment.moduleProgress.findIndex(mp => mp.moduleId === moduleId);
+    if (moduleProgIndex === -1) {
+      // Module not found, create a new entry
+      enrollment.moduleProgress.push({
+        moduleId: moduleId,
+        contentProgress: [],
+        completed: false,
+        quizAttempt: {}
+      });
+      moduleProgIndex = enrollment.moduleProgress.length - 1;
+    }
+
+    let moduleProg = enrollment.moduleProgress[moduleProgIndex];
+
+    // Find or create contentProgress entry
+    let contentProgIndex = moduleProg.contentProgress.findIndex(cp => cp.contentId === contentId);
+    if (contentProgIndex === -1) {
+      // Content not found, create a new entry
+      moduleProg.contentProgress.push({
+        contentId: contentId,
+        completed: false,
+        lastAccessedAt: new Date()
+      });
+      contentProgIndex = moduleProg.contentProgress.length - 1;
+    }
+
+    // Mark content as completed
+    moduleProg.contentProgress[contentProgIndex].completed = true;
+    moduleProg.contentProgress[contentProgIndex].lastAccessedAt = new Date();
+
+    // Check if module is now complete
+    let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
+    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
+    moduleProg.completed = allContentsCompleted && quizCompleted;
+
+    // Calculate overall progress
+    let totalModules = enrollment.moduleProgress.length;
+    let completedModules = enrollment.moduleProgress.filter(mp => mp.completed).length;
+    let progress = await enrollmentProgress(enrollment);
+
+    // Update enrollment in DB
+    await db.collection('enrollments').updateOne(
+      { _id: enrollment._id },
+      {
+        $set: {
+          moduleProgress: enrollment.moduleProgress,
+          progress: progress
+        }
+      }
+    );
+
+    try {
+      statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.COURSE_COMPLETION);
+      statsService.updateCoursesCompleted(req.user.userId, req.app.locals.db);
+    }
+    catch(error) {
+      console.error('Problem updating user xp');
+      console.error(error);
+    }
+
+    res.status(200).json({ message: 'Content marked as completed', progress });
   } catch (error) {
-    console.error('Error checking enrollment status:', error);
+    console.error('Error marking content as completed:', error);
     res.status(500).json({ message: 'Server error' });
   }
+
+});
+
+// Submit Quiz Endpoint
+router.post('/courses/:courseId/modules/:moduleId/quiz/submit', auth, statsMiddleware.updateLastActive, async (req, res) => {
+  try {
+    let db = req.app.locals.db;
+    let { courseId, moduleId } = req.params;
+    let quizData = req.body.quizData;
+    let studentId = req.user.userId;
+    const perfectQuiz = quizData.score === 100 ;
+    const highScoreQuiz = quizData.score >= STAT_THRESHOLDS.HIGHSCORE_QUIZ;
+
+    
+
+    // Find enrollment
+    let enrollment = await db.collection('enrollments').findOne({
+      course: courseId,
+      learner: studentId
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: 'Enrollment not found' });
+    }
+
+    // Find moduleProgress
+    let moduleProgIndex = enrollment.moduleProgress.findIndex(mp => mp.moduleId === moduleId);
+    if (moduleProgIndex === -1) {
+      return res.status(404).json({ message: 'Module not found in enrollment' });
+    }
+
+    let moduleProg = enrollment.moduleProgress[moduleProgIndex];
+
+    // Update quizAttempt
+    moduleProg.quizAttempt = quizData;
+
+    // Check if module is now complete
+    let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
+    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
+    moduleProg.completed = allContentsCompleted && quizCompleted;
+
+    // Calculate overall progress
+    let totalModules = enrollment.moduleProgress.length;
+    let completedModules = enrollment.moduleProgress.filter(mp => mp.completed).length;
+    let progress = await enrollmentProgress(enrollment);
+
+    // Update enrollment in DB
+    await db.collection('enrollments').updateOne(
+      { _id: enrollment._id },
+      {
+        $set: {
+          'moduleProgress.$[elem].quizAttempt': quizData,
+          'moduleProgress.$[elem].completed': moduleProg.completed,
+          progress: progress
+        }
+      },
+      {
+        arrayFilters: [{ 'elem.moduleId': moduleId }]
+      }
+    );
+
+    try {
+      await statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.SUBMIT_QUIZ);
+      if (perfectQuiz) await statsService.updatePerfectQuizzes(req.user.userId, req.app.locals.db);
+      if (highScoreQuiz) await statsService.updateHighscoreQuizzes(req.user.userId, req.app.locals.db);
+
+    }
+    catch(error) {
+      console.error('Problem updating user stats');
+      console.error(error);
+    }
+
+    res.status(200).json({ message: 'Quiz submitted successfully', progress });
+
+  } catch (error) {
+    console.error('Error submitting quiz:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+
 });
 
 // Enroll in a course
-router.post('/courses/:courseId/enroll',auth, async (req, res) => {
+router.post('/courses/:courseId/enroll', auth, statsMiddleware.updateLastActive, async (req, res) => {
   try {
     let db = req.app.locals.db;
     let courseId = req.params.courseId;
@@ -621,20 +750,17 @@ router.post('/courses/:courseId/enroll',auth, async (req, res) => {
           );
         } catch (emailError) {
           console.error('Failed to send enrollment email notification:', emailError);
-          // Continue execution, don't fail the enrollment process due to email failure
         }
       }
       
       // Create notification for facilitator
       try {
-        // Send push notification to facilitator
         await sendPushNotification(
           db,
           courseId,
           req.user.userId,
           course.facilitator
         );
-        
       } catch (notificationError) {
         console.error('Failed to create facilitator notification:', notificationError);
       }
@@ -650,6 +776,78 @@ router.post('/courses/:courseId/enroll',auth, async (req, res) => {
   }
 });
 
+// Check enrollment status for a course
+router.get('/courses/:courseId/status', auth, roleAuth(['student']),async (req, res) => {
+  try {
+    let db = req.app.locals.db;
+    let courseId = req.params.courseId;
+    
+    if (!courseId || courseId === 'undefined' || courseId === 'null') {
+      return res.status(400).json({ message: 'Invalid course ID' });
+    }
+    
+    let enrollment = await db.collection('enrollments').findOne({
+      courseId: courseId,
+      studentId: req.user.userId
+    });
+    
+    res.json({
+      isEnrolled: !!enrollment
+    });
+  } catch (error) {
+    console.error('Error checking enrollment status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get a specific enrolled course with progress
+router.get('/courses/:courseId', auth, roleAuth(['student']), async (req, res) => {
+  try {
+    let db = req.app.locals.db;
+    let courseId = req.params.courseId;
+    
+    // Check if course exists and is published
+    let course = await db.collection('courses').findOne({ 
+      key: courseId,
+      status:'published'
+    });
+    
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    if(!course.enrolledStudents)course.enrolledStudents=[];
+    // Check if student is enrolled
+    let enrollment = await db.collection('enrollments').findOne({
+      course: courseId,
+      student: req.user.userId
+    });
+    
+    if (!enrollment) {
+      return res.status(403).json({ message: 'You are not enrolled in this course' });
+    }
+    
+    // Get facilitator info
+    let facilitator = await db.collection('users').findOne(
+      { _id: new ObjectId(course.facilitator) },
+      { projection: { name: 1, profilePicture: 1, title: 1, bio: 1 } }
+    );
+    
+    // Return course with enrollment details
+    res.json({
+      ...course,
+      progress: enrollment.progress || 0,
+      moduleProgress: enrollment.moduleProgress || [],
+      enrolledAt: enrollment.enrolledAt,
+      lastAccessedAt: enrollment.lastAccessedAt,
+      facilitatorInfo: facilitator || null
+    });
+  } catch (error) {
+    console.error('Error fetching enrolled course:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get enrollment data for a course
 router.get('/courses/:courseId/enrollment', auth, roleAuth(['student']), async (req, res) => {
   try {
     const courseKey = req.params.courseId;
@@ -674,148 +872,6 @@ router.get('/courses/:courseId/enrollment', auth, roleAuth(['student']), async (
   }
 });
 
-// Submit Quiz Endpoint
-router.post('/courses/:courseId/modules/:moduleId/quiz/submit', auth, async (req, res) => {
-  try {
-    let db = req.app.locals.db;
-    let { courseId, moduleId } = req.params;
-    let quizData = req.body.quizData;
-    let studentId = req.user.userId;
-
-    // Find enrollment
-    let enrollment = await db.collection('enrollments').findOne({
-      courseId: courseId,
-      studentId: studentId
-    });
-
-    if (!enrollment) {
-      return res.status(404).json({ message: 'Enrollment not found' });
-    }
-
-    // Find moduleProgress
-    let moduleProgIndex = enrollment.moduleProgress.findIndex(mp => mp.moduleId === moduleId);
-    if (moduleProgIndex === -1) {
-      return res.status(404).json({ message: 'Module not found in enrollment' });
-    }
-
-    let moduleProg = enrollment.moduleProgress[moduleProgIndex];
-
-    
-    // Update quizAttempt
-    moduleProg.quizAttempt = quizData;
-
-    // Check if module is now complete
-    let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
-    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
-    moduleProg.completed = allContentsCompleted && quizCompleted;
-
-    // Calculate overall progress
-    let totalModules = enrollment.moduleProgress.length;
-    let completedModules = enrollment.moduleProgress.filter(mp => mp.completed).length;
-    let progress = await enrollmentProgress(enrollment);
-
-    // Update enrollment in DB
-    await db.collection('enrollments').updateOne(
-      { _id: enrollment._id },
-      {
-        $set: {
-          'moduleProgress.$[elem].quizAttempt': quizData,
-          'moduleProgress.$[elem].completed': moduleProg.completed,
-          progress: progress
-        }
-      },
-      {
-        arrayFilters: [{ 'elem.moduleId': moduleId }]
-      }
-    );
-
-    res.status(200).json({ message: 'Quiz submitted successfully', progress });
-  } catch (error) {
-    console.error('Error submitting quiz:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Submit Content Completion Endpoint
-router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete', auth, async (req, res) => {
-  try {
-    let db = req.app.locals.db;
-    let { courseId, moduleId, contentId } = req.params;
-    let studentId = req.user.userId;
-
-    // Find enrollment
-    let enrollment = await db.collection('enrollments').findOne({
-      courseId: courseId,
-      studentId: studentId
-    });
-
-    if (!enrollment) {
-      return res.status(404).json({ message: 'Enrollment not found' });
-    }
-
-    // Ensure moduleProgress exists in enrollment
-    if (!enrollment.moduleProgress) {
-      enrollment.moduleProgress = [];
-    }
-
-    // Find or create moduleProgress entry
-    let moduleProgIndex = enrollment.moduleProgress.findIndex(mp => mp.moduleId === moduleId);
-    if (moduleProgIndex === -1) {
-      // Module not found, create a new entry
-      enrollment.moduleProgress.push({
-        moduleId: moduleId,
-        contentProgress: [],
-        completed: false,
-        quizAttempt: {}
-      });
-      moduleProgIndex = enrollment.moduleProgress.length - 1;
-    }
-
-    let moduleProg = enrollment.moduleProgress[moduleProgIndex];
-
-    // Find or create contentProgress entry
-    let contentProgIndex = moduleProg.contentProgress.findIndex(cp => cp.contentId === contentId);
-    if (contentProgIndex === -1) {
-      // Content not found, create a new entry
-      moduleProg.contentProgress.push({
-        contentId: contentId,
-        completed: false,
-        lastAccessedAt: new Date()
-      });
-      contentProgIndex = moduleProg.contentProgress.length - 1;
-    }
-
-    // Mark content as completed
-    moduleProg.contentProgress[contentProgIndex].completed = true;
-    moduleProg.contentProgress[contentProgIndex].lastAccessedAt = new Date();
-
-    // Check if module is now complete
-    let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
-    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
-    moduleProg.completed = allContentsCompleted && quizCompleted;
-
-    // Calculate overall progress
-    let totalModules = enrollment.moduleProgress.length;
-    let completedModules = enrollment.moduleProgress.filter(mp => mp.completed).length;
-    let progress = await enrollmentProgress(enrollment);
-
-    // Update enrollment in DB
-    await db.collection('enrollments').updateOne(
-      { _id: enrollment._id },
-      {
-        $set: {
-          moduleProgress: enrollment.moduleProgress, // Update the entire moduleProgress array
-          progress: progress
-        }
-      }
-    );
-
-    res.status(200).json({ message: 'Content marked as completed', progress });
-  } catch (error) {
-    console.error('Error marking content as completed:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 // Update course progress
 router.put('/courses/:courseId/progress', auth, async (req, res) => {
   try {
@@ -828,9 +884,6 @@ router.put('/courses/:courseId/progress', auth, async (req, res) => {
     }
     
     console.log('Update progress params:', { courseId, moduleId, contentId, completed });
-    
-    // Validate that courseId is valid MongoDB ObjectId
-    
     
     let courseObjectId = courseId;
     
@@ -1014,7 +1067,6 @@ router.put('/courses/:courseId/progress', auth, async (req, res) => {
       }
     } catch (streakError) {
       console.error('Error updating learning streak:', streakError);
-      // Continue execution, don't fail the progress update due to streak tracking error
     }
     
     res.json({ 
@@ -1028,11 +1080,25 @@ router.put('/courses/:courseId/progress', auth, async (req, res) => {
   }
 });
 
+// Less specific routes
+// Get all enrolled courses
+router.get('/courses', auth, roleAuth(['student']),  async (req, res) => {
+  try {
+      const db = req.app.locals.db;
+      const userId = req.user.userId;
+      const courses = await studentServices.getEnrolledCourses(db, userId);
+      res.json(courses);
+    } catch (error) {
+      console.error("Error fetching enrolled courses:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+});
+
 // Fix and sync enrollment data
 router.post('/sync-enrollments', auth, async (req, res) => {
   try {
     let db = req.app.locals.db;
-    return;
+    
     
     // Get all enrollments
     let enrollments = await db.collection('enrollments').find({}).toArray();
@@ -1050,9 +1116,7 @@ router.post('/sync-enrollments', auth, async (req, res) => {
       if (!enrollment.courseId || !enrollment.studentId) continue;
       
       try {
-        // Convert string IDs to ObjectId if they're not already
         let courseObjectId = enrollment.courseId;
-          
         let studentObjectId = enrollment.studentId;
         let enProgress=await enrollmentProgress(enrollment);
         if(parse(enProgress)!=parse(enrollment.progress)){
@@ -1126,7 +1190,6 @@ router.post('/sync-enrollments', auth, async (req, res) => {
         }
       } catch (innerError) {
         console.error(`Error processing enrollment ${enrollment._id}:`, innerError);
-        // Continue with next enrollment
         continue;
       }
     }
@@ -1181,96 +1244,6 @@ router.get('/stats', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching learning stats:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Track video watch time
-
-router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
-  try {
-    let db = req.app.locals.db;
-    let courseId = req.params.courseId;
-    let { moduleId, contentId, watchTime, duration } = req.body;
-    
-    
-    if (!moduleId || !contentId || watchTime === undefined || duration === undefined) {
-      return res.status(400).json({ message: 'Missing required parameters' });
-    }
-
-    // Check if student is enrolled
-    let enrollment = await db.collection('enrollments').findOne({
-      courseId: courseId,
-      studentId: req.user.userId,
-    });
-    
-    if (!enrollment) {
-      return res.status(403).json({ message: 'You are not enrolled in this course' });
-    }
-    
-    // Calculate watch percentage
-    let watchPercentage = (watchTime / duration) * 100;
-    
-    // Update module progress with watch time
-    let moduleProgress = enrollment.moduleProgress || [];
-    let moduleIndex = moduleProgress.findIndex(m => m.moduleId === moduleId);
-    
-    if (moduleIndex === -1) {
-      // Module not found, create new entry
-      moduleProgress.push({
-        moduleId,
-        watchData: {
-          [contentId]: {
-            lastWatchTime: watchTime,
-            duration,
-            watchPercentage,
-            completed: watchPercentage >= 90,
-          },
-        },
-      });
-    } else {
-      // Module found, update watch data
-      if (!moduleProgress[moduleIndex].watchData) {
-        moduleProgress[moduleIndex].watchData = {};
-      }
-      
-      moduleProgress[moduleIndex].watchData[contentId] = {
-        lastWatchTime: watchTime,
-        duration,
-        watchPercentage,
-        completed: watchPercentage >= 90,
-      };
-      
-      // If watched 90% or more, automatically mark as completed in completedContent array
-      if (watchPercentage >= 90) {
-        if (!moduleProgress[moduleIndex].completedContent) {
-          moduleProgress[moduleIndex].completedContent = [];
-        }
-        
-        if (!moduleProgress[moduleIndex].completedContent.includes(contentId)) {
-          moduleProgress[moduleIndex].completedContent.push(contentId);
-        }
-      }
-    }
-    
-    // Update enrollment document
-    await db.collection('enrollments').updateOne(
-      { courseId: courseId, studentId: req.user.userId },
-      { 
-        $set: { 
-          moduleProgress,
-          lastAccessedAt: new Date(),
-        },
-      }
-    );
-    
-    res.json({ 
-      message: 'Watch time recorded successfully',
-      watchPercentage,
-      completed: watchPercentage >= 90,
-    });
-  } catch (error) {
-    console.error('Error tracking video watch time:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

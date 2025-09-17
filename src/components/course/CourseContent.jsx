@@ -13,7 +13,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from 'date-fns';
-import { badgeService } from '../../services/badgeService';
 
 const CourseContent = ({ course }) => {
   const [completedContent, setCompletedContent] = useState({});
@@ -27,7 +26,7 @@ const CourseContent = ({ course }) => {
     lastActivity: 'Today'
   });
   const [courseCompleted, setCourseCompleted] = useState(progressStats.completedContent === progressStats.totalContent && progressStats.completedContent > 0);
-  const { token, API_URL } = useTourLMS();
+  const { token, API_URL, setStudentStats } = useTourLMS();
   const { toast } = useToast();
   const [showQuiz, setShowQuiz] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
@@ -108,9 +107,9 @@ const CourseContent = ({ course }) => {
   useEffect(() => {
     if (courseCompleted) {
 
-      badgeService.updateStats({coursesCompleted: badgeService.getStats().coursesCompleted + 1, totalXp: badgeService.getStats().totalXp + 150});
-      //badgeService.checkCourseBadges();
-      console.log(badgeService.getStats())
+    
+      // update stats
+
     }
   }, [courseCompleted])
 
@@ -166,7 +165,7 @@ const CourseContent = ({ course }) => {
   };
 
   // Update video watch history when video is watched
-  const handleVideoWatchProgress = useCallback((moduleId, contentId, completed) => {
+  const handleVideoWatchProgress = useCallback(async (moduleId, contentId, completed) => {
     if (completed) {
       const key = `${moduleId}-${contentId}`;
       if (!completedContent[key]) {
@@ -193,7 +192,7 @@ const CourseContent = ({ course }) => {
       }));
     }
     clg(data);
-    badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 35});
+    //badgeService.updateStats({totalXp: badgeService.getStats().totalXp + 35});
 
   };
 
@@ -284,13 +283,15 @@ const CourseContent = ({ course }) => {
       });
 
       course.enrollment.moduleProgress = updatedModuleProgress;
-      course.enrollment.progress = data.progress;
+      course.enrollment.progress = data.progress; // TODO: fix data doesnt match expectations
 
       toast({
         title: "Progress Updated",
         description: "Your progress has been saved.",
         variant: "default",
       });
+
+      return data;
 
     } catch (error) {
       console.error('Error marking content as completed:', error);

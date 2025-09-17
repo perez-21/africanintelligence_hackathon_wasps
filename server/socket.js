@@ -102,6 +102,21 @@ const setupSocket = (server, db) => {
       }
     });
 
+    // Badges
+
+    socket.on('badge:unlocked', async (data) => {
+      console.log('triggered')
+      if (!data) {
+        return;
+      }
+      
+      const result = await db.collection('users').updateOne(
+        { _id:  socket.user._id },
+        { $push: { badges: data } }
+      );
+      console.log(result)
+    });
+
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.user._id}`);

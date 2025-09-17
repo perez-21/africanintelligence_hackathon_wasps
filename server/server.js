@@ -8,11 +8,12 @@ const enrollmentRoutes = require("./routes/enrollment");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/adminRoutes");
 const facilitatorRoutes = require("./routes/facilitatorRoutes");
-const studentRoutes = require("./routes/studentRoutes");
+const studentRoutes = require("./routes/learner");
 const courseRoutes = require("./routes/course");
 const forumRoutes = require("./routes/forum");
 const notificationRoutes = require("./routes/notification");
 const uploadRoutes = require("./routes/upload");
+const leaderboardRoutes = require("./routes/leaderboard");
 const adminServices = require("./services/adminServices");
 const webpush = require("web-push");
 const { clg } = require("./routes/basics");
@@ -83,6 +84,7 @@ async function startServer() {
     app.use("/api/upload", uploadRoutes);
     app.use("/api/activities", activityRoutes);
     app.use("/api/enrollments", enrollmentRoutes);
+    app.use("/api/leaderboard", leaderboardRoutes);
 
     // Serve static files in production
     if (process.env.NODE_ENV === "production") {

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { clg, ocn } from '../lib/basic';
 import { io } from 'socket.io-client';
 import notificationService from '../services/notificationService';
-import { badgeService } from '../services/badgeService';
+import { socketService } from "@/services/socketService";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3031/api';
 const clientID='NOTIFICATION-CLIENT-ID'
@@ -26,6 +26,8 @@ const Categories = 'Digital Infrastructure,AI Talent & Education,Innovation & En
 export const TourLMSProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState({});
+  const [studentStats, setStudentStats] = useState({});
+  const [studentBadges, setStudentBadges] = useState(new Set());
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
@@ -181,6 +183,7 @@ export const TourLMSProvider = ({ children }) => {
       });
 
       setSocket(socketConnection);
+      socketService.initialize(socket);
       
       // Initialize notification service for browser notifications
       notificationService.initialize().then((initialized) => {
@@ -230,12 +233,6 @@ export const TourLMSProvider = ({ children }) => {
     }
     catch (error) {
       console.error(`Error getting enrollment`);
-    }
-  }
-
-  const badgeStuff = async () => {
-    if (enrolledCourses.length > 1) {
-      
     }
   }
 
@@ -326,7 +323,7 @@ export const TourLMSProvider = ({ children }) => {
       console.error('Error marking all notifications as read:', error);
     }
   };
-    
+  
   async function packLoad(newUser, tok) {
     try {
       // Load courses based on user role
@@ -356,6 +353,15 @@ export const TourLMSProvider = ({ children }) => {
         }
 
         console.log(`enrollments: ${enrollments}`);
+
+        // Set stats and badges
+
+        const student = await getMe(tok);
+        setStudentStats(student.stats);
+        setStudentBadges(new Set(student.badges));
+        console.log(`student: ${JSON.stringify(student.stats)}`);
+        console.log(`student stats: ${JSON.stringify(studentStats)}`);
+        
       }
       
       // For both students and facilitators, load all courses
@@ -427,6 +433,8 @@ export const TourLMSProvider = ({ children }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    setStudentStats(null);
+    setStudentBadges(new Set());
     setIsAuthenticated(false);
     setFacilitatorCourses([]);
     setCoursesHub([]);
@@ -451,6 +459,10 @@ export const TourLMSProvider = ({ children }) => {
     setFacilitatorCourses,
     user,theme,setTheme,
     setUser,
+    studentStats,
+    setStudentStats,
+    studentBadges,
+    setStudentBadges,
     packLoad,
     token,API_URL,
     setToken,

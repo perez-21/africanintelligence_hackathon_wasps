@@ -361,13 +361,13 @@ export const BADGES = [
     tier: 2,
   },
   {
-    id: "quiz-streak-5",
+    id: "quiz-5",
     name: "Quiz Champion",
-    description: "Got 5 perfect quiz scores in a row.",
+    description: "Got 5 perfect quiz scores.",
     icon: "🏅",
     category: BADGE_CATEGORIES.QUIZ,
-    unlock: (stats) => stats.quizStreak >= 5,
-    progress: (stats) => (Math.min(stats.quizStreak, 5) / 5) * 100,
+    unlock: (stats) => stats.perfectQuizzes >= 5,
+    progress: (stats) => (Math.min(stats.perfectQuizzes, 5) / 5) * 100,
     tier: 3,
   },
   {

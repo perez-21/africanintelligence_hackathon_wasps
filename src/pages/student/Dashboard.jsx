@@ -40,22 +40,16 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const { user, course, API_URL, token } = useTourLMS();
   const { userXP, awardXP } = useXP();
+  const {studentStats, setStudentStats} = useTourLMS();
   const [userStats, setUserStats] = useState({
-    totalPoints: 0,
-    rank: 0,
-    completedChallenges: 0,
-    activeChallenges: 0,
-    currentStreak: 0,
-    totalXp: 0,
-    totalEnrolled: 0,
-    certificatesEarned: 0,
+    totalXp: studentStats?.totalXp || 0,
+    currentStreak: studentStats?.currentStreak || 0,
     completedLessons: 0,
     totalLessons: 0,
     completedQuizzes: 0,
     totalQuizzes: 0,
     averageScore: 0,
     lastActive: new Date(),
-    streakDays: 0,
   });
   const [categories, setCategories] = useState([]);
   const [relatedCourses, setRelatedCourses] = useState([]);
@@ -78,21 +72,13 @@ const Dashboard = () => {
 
         // Update user stats
         setUserStats({
-          totalPoints: courses.reduce((sum, course) => sum + (course.points || 0), 0),
-          rank: Math.floor(Math.random() * 100) + 1, // Placeholder for actual rank
-          completedChallenges: courses.filter(c => c.completed).length,
-          activeChallenges: courses.filter(c => !c.completed).length,
+          totalXp: courses.reduce((sum, course) => sum + (course.points || 0), 0),
           currentStreak: calculateStreak(courses),
-          totalXp: courses.reduce((sum, course) => sum + (course.xp || 0), 0),
-          totalEnrolled: courses.length,
-          certificatesEarned: courses.filter(c => c.certificateIssued).length,
           completedLessons: courses.reduce((sum, course) => sum + (course.completedLessons || 0), 0),
           totalLessons: courses.reduce((sum, course) => sum + (course.totalLessons || 0), 0),
           completedQuizzes: courses.reduce((sum, course) => sum + (course.completedQuizzes || 0), 0),
           totalQuizzes: courses.reduce((sum, course) => sum + (course.totalQuizzes || 0), 0),
-          averageScore: courses.reduce((sum, course) => sum + (course.averageScore || 0), 0) / courses.length,
           lastActive: new Date(courses[0]?.lastAccessedAt || new Date()),
-          streakDays: calculateStreak(courses),
         });
 
         // Find related courses
@@ -169,7 +155,7 @@ const Dashboard = () => {
         const stats = await response.json();
         setUserStats({
           ...stats,
-          totalPoints: userXP?.totalXP || 0,
+          totalXp: userXP?.totalXP || 0,
         });
 
         // Award XP for daily login if not already awarded today

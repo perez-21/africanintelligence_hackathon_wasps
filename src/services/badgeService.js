@@ -1,10 +1,16 @@
 import { BADGES } from "@/data/badges";
-import { useSocket } from "@/services/socketService";
+// import { useTourLMS } from "../contexts/TourLMSContext";
+
+// const { studentStats, setStudentStats, studentBadges, setStudentBadges } = useTourLMS();
 
 class BadgeService {
   constructor() {
     this.socket = null;
     this.unlockedBadges = new Set();
+
+    this.setStudentBadges = null;
+    this.setStudentStats = null;
+
     this.stats = {
       // Streak stats
       currentStreak: 0,
@@ -53,9 +59,22 @@ class BadgeService {
     };
   }
 
-  initialize(socket) {
+  initialize(socket, studentStats, studentBadges, setStudentStats, setStudentBadges) {
+    console.log(studentStats)
     this.socket = socket;
     this.setupSocketListeners();
+
+    if (studentBadges && Array.isArray(studentBadges)) {
+      for(let badge of studentBadges){
+        this.unlockedBadges.add(badge);
+      }
+      
+    }
+    this.setStudentBadges = setStudentBadges;
+    this.setStudentStats = setStudentStats;
+
+    this.updateStats(studentStats || this.stats);
+
   }
 
   setupSocketListeners() {
@@ -221,13 +240,20 @@ class BadgeService {
         {}
       ),
     };
+
+    this.setStudentStats(this.stats);
+    // TODO: persist stats
+    console.log(this.stats)
     this.checkAllBadges();
   }
 
   checkAllBadges() {
     BADGES.forEach((badge) => {
-      if (badge.unlock(this.stats) && !this.unlockedBadges.has(badge.id)) {
+      const result = badge.unlock(this.stats) && !this.unlockedBadges.has(badge.id);
+      console.log(`result: ${result}`);
+      if (result) {
         this.unlockBadge(badge.id);
+        console.log('unlocked')
       }
     });
   }
@@ -316,7 +342,11 @@ class BadgeService {
     this.unlockedBadges.add(badgeId);
     if (this.socket) {
       this.socket.emit("badge:unlocked", badgeId);
+      console.log('unlocked');
     }
+
+    console.log('unlocked');
+
   }
 
   getUnlockedBadges() {
