@@ -383,12 +383,14 @@ export const getFacilitatorStudents = async (token) => {
 export const trackVideoWatchTime = async (courseId, moduleId, contentId, watchTime, duration, token) => {
   configureAxios(token);
   try {
+    console.log(`${courseId}, ${watchTime}, ${duration}`);
     const response = await axios.post(`${API_URL}/learner/courses/${courseId}/watch-time`, {
       moduleId,
       contentId,
       watchTime,
       duration
     });
+    
     return response.data;
   } catch (error) {
     console.error('Error tracking video watch time:', error);

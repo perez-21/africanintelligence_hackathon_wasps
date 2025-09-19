@@ -1441,7 +1441,12 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
       .collection("users")
       .updateOne(
         { _id: new ObjectId(learnerId) },
-        { $push: { enrolledCourses: courseId } }
+        {
+          $push: {
+            enrolledCourses: courseId,
+            'stats.languagesLearned': course.language
+          }
+        }
       );
 
     await db

@@ -9,6 +9,8 @@ const { sendWelcomeEmail } = require("../utils/mailer");
 const { vapid_private_key, clientID } = require("../configs/config");
 const { clg } = require("./basics");
 const { body, validationResult } = require("express-validator");
+const SPECIAL_CONSTANTS = require("./../constants/special");
+const statsService = require("./../services/statService");
 const { BADFLAGS } = require("dns");
 
 const googleClient = new OAuth2Client(clientID);
@@ -289,6 +291,7 @@ const googleClient = new OAuth2Client(clientID);
 
 router.get("/", async (req, res) => {
   try {
+
     const db = req.app.locals.db;
     const users = await db.collection("users").find().toArray();
     res.json(users);
@@ -394,6 +397,10 @@ router.post("/register", async (req, res) => {
       email: newUser.email,
       role: newUser.role,
     };
+
+    // update stats
+    if (userData.role === 'student')
+    await statsService.updateEarlyAdopter(result.insertedId.toString(), db );
 
     // Get popular courses for welcome email
     const popularCourses = await db
@@ -819,6 +826,8 @@ router.get("/me", auth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    user.stats.languagesLearned = new Set(user.stats.languagesLearned).size
 
     res.json({
       id: user._id,

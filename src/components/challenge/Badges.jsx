@@ -176,7 +176,6 @@ export const Badges = ({ stats = {} }) => {
             );
           })}
         </AnimatePresence>
-        <StatsIncrementer studentStats={studentStats} setStudentStats={setStudentStats}></StatsIncrementer>
       </div>
 
     </div>

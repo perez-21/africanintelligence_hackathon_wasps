@@ -11,6 +11,7 @@ const XP_CONSTANTS = require("../constants/xp");
 const STAT_THRESHOLDS = require("../constants/threshold");
 const statsService = require("../services/statService");
 const statsMiddleware = require("./../middleware/stats");
+const moment = require("moment");
 
 
 
@@ -406,6 +407,8 @@ router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
       return res.status(400).json({ message: 'Missing required parameters' });
     }
 
+    console.log(`watchtime: ${watchTime} / ${duration} ::: enrollment: ${contentId} / ${moduleId} ::: ${typeof watchTime}`);
+
     // Check if student is enrolled
     let enrollment = await db.collection('enrollments').findOne({
       course: courseId,
@@ -446,11 +449,14 @@ router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
         lastWatchTime: watchTime,
         duration,
         watchPercentage,
-        completed: watchPercentage >= 90,
+        completed: watchPercentage >= 70,
       };
+
+      // update watch time stats
+      await statsService.updateLearningHours(req.user.userId, db, (watchTime / 3600) )
       
       // If watched 90% or more, automatically mark as completed in completedContent array
-      if (watchPercentage >= 90) {
+      if (watchPercentage >= 70) {
         if (!moduleProgress[moduleIndex].completedContent) {
           moduleProgress[moduleIndex].completedContent = [];
         }
@@ -463,11 +469,12 @@ router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
     
     // Update enrollment document
     await db.collection('enrollments').updateOne(
-      { courseId: courseId, studentId: req.user.userId },
+      { course: courseId, student: req.user.userId },
       { 
         $set: { 
           moduleProgress,
-          lastAccessedAt: new Date(),
+          lastAccessed: new Date(),
+          completed: watchPercentage > 70
         },
       }
     );
@@ -475,7 +482,7 @@ router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
     res.json({ 
       message: 'Watch time recorded successfully',
       watchPercentage,
-      completed: watchPercentage >= 90,
+      completed: watchPercentage >= 70,
     });
   } catch (error) {
     console.error('Error tracking video watch time:', error);
@@ -486,6 +493,7 @@ router.post('/courses/:courseId/watch-time', auth, async (req, res) => {
 // Submit Content Completion Endpoint
 router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete', auth, statsMiddleware.updateLastActive, async (req, res) => {
   try {
+    const userAgent = req.get('User-Agent');
     let db = req.app.locals.db;
     let { courseId, moduleId, contentId } = req.params;
     let studentId = req.user.userId;
@@ -555,8 +563,48 @@ router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete',
     );
 
     try {
-      statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.COURSE_COMPLETION);
-      statsService.updateCoursesCompleted(req.user.userId, req.app.locals.db);
+      // course completion stat logic TODO: update relevant fields on course completion
+      if (enrollment.completedAt) await statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.COURSE_COMPLETION);
+      if (enrollment.completedAt) await statsService.updateCoursesCompleted(req.user.userId, req.app.locals.db);
+
+      if (enrollment.completedAt && enrollment.enrolledAt) {
+        // Convert dates to moment objects for easy calculation
+        const completedAt = moment(enrollment.completedAt);
+        const enrolledAt = moment(enrollment.enrolledAt);
+
+        // Calculate the difference in hours
+        const diffInHours = completedAt.diff(enrolledAt, 'hours');
+
+        if (diffInHours < 24) {
+          // Assuming statsService is available
+          await statsService.updateFastCompletion(req.user.userId, req.app.locals.db);
+        }
+      }
+
+      const isMobile = userAgent.match(/Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i);
+
+      if (isMobile) {
+        await statsService.updateMobileLessons(req.user.userId, req.app.locals.db);
+      }
+
+      const now = new Date();
+      const hour = now.getHours();
+      const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+
+      // Morning lessons: after midnight but before 10am
+      if (hour >= 0 && hour < 10) {
+        await statsService.updateMorningLessons(req.user.userId, req.app.locals.db);
+      }
+
+      // Night lessons: after 10pm
+      if (hour >= 22) {
+        await statsService.updateNightLessons(req.user.userId, req.app.locals.db);
+      }
+
+      // Weekend lessons: Saturday or Sunday
+      if (day === 0 || day === 6 || day === 5) {
+        await statsService.updateWeekendLessons(req.user.userId, req.app.locals.db);
+      }
     }
     catch(error) {
       console.error('Problem updating user xp');
@@ -854,9 +902,8 @@ router.get('/courses/:courseId/enrollment', auth, roleAuth(['student']), async (
     const learnerId = req.user.userId;
     let db = req.app.locals.db;
 
-    console.log(`stuff: ${courseKey}, ${learnerId}`)
     let enrollment = await db.collection('enrollments').findOne({ 
-      learner: new ObjectId(learnerId),
+      learner: learnerId,
       course: courseKey
     });
 
