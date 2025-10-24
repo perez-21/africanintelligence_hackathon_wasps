@@ -37,7 +37,7 @@ async function updateUserXp(userId, db, xp) {
 
   const result = await db.collection('users').findOneAndUpdate(
     { _id: new ObjectId(userId) },
-    { $inc: { 'stats.totalXp': xp } },
+    { $inc: { 'stats.totalXp': xp, 'stats.weeklyXp': xp, 'stats.monthlyXp': xp, 'stats.yearlyXp': xp } },
     { returnDocument: 'after' }
   );
 

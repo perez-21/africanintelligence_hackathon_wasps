@@ -418,7 +418,7 @@ function contentProgress(module) {
  *           type: object
  */
 
-
+router.use(statsMiddleware.resetPeriodicXP);
 
 // Most specific routes first
 // Track video watch time

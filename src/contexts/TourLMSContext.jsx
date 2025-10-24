@@ -236,6 +236,13 @@ export const TourLMSProvider = ({ children }) => {
     }
   }
 
+  const loadRanks = async () => {
+    await fetch(`${API_URL}/leaderboard`);
+    await fetch(`${API_URL}/leaderboard/weekly`);
+    await fetch(`${API_URL}/leaderboard/monthly`);
+    await fetch(`${API_URL}/leaderboard/yearly`);
+  }
+
   const loadFacilitatorStats = async () => {
     if (!token) return;
     
@@ -355,6 +362,8 @@ export const TourLMSProvider = ({ children }) => {
         console.log(`enrollments: ${enrollments}`);
 
         // Set stats and badges
+
+        await loadRanks();
 
         const student = await getMe(tok);
         setStudentStats(student.stats);

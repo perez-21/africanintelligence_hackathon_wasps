@@ -2,8 +2,10 @@ let express = require('express');
 let router = express.Router();
 let auth = require('../middleware/auth');
 let roleAuth = require('../middleware/roleAuth');
+const statsMiddleware = require('../middleware/stats');
 let { ObjectId } = require('mongodb');
 
+router.use(statsMiddleware.resetPeriodicXP);
 
 router.get('/', auth, async (req, res) => {
   let db = req.app.locals.db;

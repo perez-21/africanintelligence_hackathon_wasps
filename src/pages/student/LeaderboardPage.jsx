@@ -15,7 +15,7 @@ const TABS = [
   { key: "global", label: "Global", icon: "🌍" },
   { key: "weekly", label: "Weekly", icon: "📅" },
   { key: "course", label: "Course", icon: "📚" },
-  { key: "friends", label: "Friends", icon: "👥" }
+  // { key: "friends", label: "Friends", icon: "👥" }
 ];
 
 const TIME_RANGES = [
@@ -57,9 +57,26 @@ const fetchGlobalLeaderboard = async () => {
     xpChange: null,
     weeklyProgress: null,
   }));
-  console.log(board);
   return board;
 }
+
+const fetchWeeklyLeaderboard = async () => {
+  const response = await axios.get(`${API_URL}/leaderboard/weekly`);
+  console.log(response);
+  const board = response.data.map((element) => ({
+    userId: element._id,
+    name: element.name,
+    xp: element.stats.weeklyXp,
+    level: element.stats.weeklyRank,
+    avatar: element.profilePicture || `https://i.pravatar.cc/150`,
+    isPremium: false,
+    xpChange: null,
+    weeklyProgress: null,
+  }));
+  console.log("weekly board", board);
+  return board;
+}
+
 
 const generateCourses = () => [
   { id: "math101", name: "Mathematics Fundamentals" },
@@ -100,7 +117,7 @@ export default function LeaderboardPage() {
     setIsLoading(true);
     
     // Simulate API call delay
-    const timer = setTimeout(async () => {
+
       let newData = [];
       
       switch(tab) {
@@ -109,23 +126,21 @@ export default function LeaderboardPage() {
           newData = await fetchGlobalLeaderboard();
           break;
         case "weekly":
-          newData = generateUsers(15, true);
+          newData = await fetchWeeklyLeaderboard();
           break;
         case "course":
           newData = generateUsers(10);
           break;
-        case "friends":
-          newData = generateFriendsData(demoUser.id);
-          break;
+        // case "friends":
+        //   newData = generateFriendsData(demoUser.id);
+        //   break;
         default:
           newData = generateUsers(10);
       }
       
       setData(newData);
       setIsLoading(false);
-    }, 800);
     
-    return () => clearTimeout(timer);
   }, [tab, timeRange, selectedCourse]);
 
   // socket connection

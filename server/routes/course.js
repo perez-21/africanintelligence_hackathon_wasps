@@ -7,6 +7,7 @@ let { datemap, clg } = require("./basics");
 const { body } = require("express-validator");
 const { v4: uuidv4 } = require("uuid");
 const statsService = require("../services/statService");
+const statsMiddleware = require("../middleware/stats");
 const XP_CONSTANTS = require("../constants/xp");
 
 /**
@@ -942,6 +943,8 @@ const XP_CONSTANTS = require("../constants/xp");
  *                   type: string
  *                   example: "Server error"
  */
+
+router.use(statsMiddleware.resetPeriodicXP);
 
 router.get("/latest", async (req, res) => {
   try {

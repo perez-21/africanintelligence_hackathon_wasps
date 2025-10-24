@@ -1,5 +1,6 @@
 const express = require('express');
 const { ObjectId } = require('mongodb');
+const statsMiddleware = require('./../middleware/stats'); 
 const router = express.Router();
 
 // Helper to update user ranks
@@ -23,6 +24,8 @@ async function updateUserRank(users, rankField, db) {
     }
   }
 }
+
+router.use(statsMiddleware.resetPeriodicXP);
 
 // General leaderboard
 router.get('/', async (req, res) => {
