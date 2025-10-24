@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import BadgeHelper from '@/services/badgeHelper';
 import { useTourLMS } from "../../contexts/TourLMSContext";
 import { StatsIncrementer } from "./StatsIncrementer";
+import { useNavigate } from "react-router-dom";
 
 export const Badges = ({ stats = {} }) => {
   const [activeCategory, setActiveCategory] = useState('All');
@@ -16,6 +17,7 @@ export const Badges = ({ stats = {} }) => {
   const { user } = useTourLMS();
   const { toast } = useToast();
   const socket = useSocket();
+  const navigate = useNavigate();
 
   const categories = ['All', ...Object.values(BADGE_CATEGORIES)];
   
@@ -92,11 +94,25 @@ export const Badges = ({ stats = {} }) => {
         <h2 className="text-lg font-semibold">
           Badges Progress: {unlockedCount}/{totalBadges}
         </h2>
-        <div className="w-full max-w-xs bg-gray-200 rounded-full h-2.5">
-          <div 
-            className="bg-green-500 h-2.5 rounded-full" 
-            style={{ width: `${Math.min(100, Math.max(0, (unlockedCount / totalBadges) * 100))}%` }}
-          ></div>
+        <div className="flex items-center w-full max-w-xs gap-3">
+          <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+            <div 
+              className="bg-green-500 h-2.5 rounded-full" 
+              style={{ width: `${Math.min(100, Math.max(0, (unlockedCount / totalBadges) * 100))}%` }}
+            ></div>
+          </div>
+
+          <button
+            onClick={() => navigate(0)}
+            aria-label="Refresh"
+            title="Refresh"
+            className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12a9 9 0 1 1-3-6.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="21 3 21 9 15 9" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
 

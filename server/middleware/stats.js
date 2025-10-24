@@ -1,5 +1,3 @@
-const statService = require("./../services/statService");
-const XP_CONSTANTS = require("./../constants/xp");
 const { ObjectId } = require("mongodb");
 
 const updateLastActive = async (req, res, next) => {
