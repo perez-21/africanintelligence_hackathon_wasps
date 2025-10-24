@@ -8,6 +8,8 @@ import { XPProgress } from "../../components/challenge/XPProgress";
 import axios from "axios";
 import { io } from "socket.io-client";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3031/api';
+
 
 const TABS = [
   { key: "global", label: "Global", icon: "🌍" },
@@ -43,14 +45,14 @@ const generateUsers = (count, isWeekly = false) => {
 };
 
 const fetchGlobalLeaderboard = async () => {
-  const response = await axios.get('http://localhost:3000/leaderboard');
+  const response = await axios.get(`${API_URL}/leaderboard`);
   console.log(response);
   const board = response.data.map((element) => ({
-    userId: element.userId,
-    name: "Name",
-    xp: element.score,
-    level: 10,
-    avatar: `https://i.pravatar.cc/150`,
+    userId: element._id,
+    name: element.name,
+    xp: element.stats.totalXp,
+    level: element.stats.rank,
+    avatar: element.profilePicture || `https://i.pravatar.cc/150`,
     isPremium: false,
     xpChange: null,
     weeklyProgress: null,
@@ -103,8 +105,8 @@ export default function LeaderboardPage() {
       
       switch(tab) {
         case "global":
-          newData = generateUsers(20);
-          //newData = await fetchGlobalLeaderboard();
+          // newData = generateUsers(20);
+          newData = await fetchGlobalLeaderboard();
           break;
         case "weekly":
           newData = generateUsers(15, true);
@@ -127,12 +129,14 @@ export default function LeaderboardPage() {
   }, [tab, timeRange, selectedCourse]);
 
   // socket connection
+  /*
   const ioClient = io('http://localhost:3001', {auth: {userId: user.id}});
   ioClient.on('connected', (d) => console.log('connected', d));
   ioClient.on('score.updated', (evt) => {
     console.log('score updated', evt);
     // update score UI
   });
+  */
 
 
   return (

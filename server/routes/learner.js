@@ -5,7 +5,7 @@ let roleAuth = require('../middleware/roleAuth');
 let { ObjectId } = require('mongodb');
 let sendEnrollmentNotification = require('../utils/mailer');
 let { sendEnrollmentNotification: sendPushNotification } = require('./notification');
-let { clg, ocn, enrollmentProgress, parse } = require('./basics');
+let { clg, ocn, parse } = require('./basics');
 const studentServices = require("../services/studentServices");
 const XP_CONSTANTS = require("../constants/xp");
 const STAT_THRESHOLDS = require("../constants/threshold");
@@ -14,6 +14,31 @@ const statsMiddleware = require("./../middleware/stats");
 const moment = require("moment");
 
 
+function enrollmentProgress(enrollment) {
+  const moduleCount = 0;
+  const totalModuleCount = enrollment.moduleCount;
+
+  for (let module of enrollment.moduleProgress) {
+    if (module.completed) {
+      moduleCount++;
+    }
+
+    return moduleCount / totalModuleCount;
+  }
+}
+
+function contentProgress(module) {
+  const contentCount = 0;
+  const totalContentCount = module.contentCount;
+
+  for (let content of module.contentProgress) {
+    if (content.completed) {
+      contentCount++;
+    }
+
+    return contentCount / totalContentCount;
+  }
+}
 
 /**
  * @swagger
@@ -498,8 +523,6 @@ router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete',
     let { courseId, moduleId, contentId } = req.params;
     let studentId = req.user.userId;
 
-    console.log('Complete content params:', { courseId, moduleId, contentId, studentId });
-
     // Find enrollment
     let enrollment = await db.collection('enrollments').findOne({
       course: courseId,
@@ -518,7 +541,7 @@ router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete',
         moduleId: moduleId,
         contentProgress: [],
         completed: false,
-        quizAttempt: {}
+        quizAttempts: {}
       });
       moduleProgIndex = enrollment.moduleProgress.length - 1;
     }
@@ -541,15 +564,21 @@ router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete',
     moduleProg.contentProgress[contentProgIndex].completed = true;
     moduleProg.contentProgress[contentProgIndex].lastAccessedAt = new Date();
 
-    // Check if module is now complete
-    let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
-    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
+
+    // check module completion
+    let totalContent = moduleProg.contentCount || moduleProg.contentProgress.length;
+    let completedContent = moduleProg.contentProgress.filter(cp => cp.completed).length;
+    let allContentsCompleted = completedContent === totalContent;
+    let quizCompleted = Object.keys(moduleProg.quizAttempts).length > 0;
     moduleProg.completed = allContentsCompleted && quizCompleted;
 
     // Calculate overall progress
-    let totalModules = enrollment.moduleProgress.length;
+    let totalModules = enrollment.moduleCount;
     let completedModules = enrollment.moduleProgress.filter(mp => mp.completed).length;
-    let progress = await enrollmentProgress(enrollment);
+    let progress = completedModules / (totalModules || completedModules);
+    progress = Math.round(progress * 100);
+    
+
 
     // Update enrollment in DB
     await db.collection('enrollments').updateOne(
@@ -557,12 +586,18 @@ router.post('/courses/:courseId/modules/:moduleId/contents/:contentId/complete',
       {
         $set: {
           moduleProgress: enrollment.moduleProgress,
-          progress: progress
+          progress: progress,
+          completedAt: progress >= 100 ? new Date() : null
         }
       }
     );
 
+    enrollment = await db.collection('enrollments').findOne({
+      _id: enrollment._id,
+    });
+
     try {
+      await statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.LESSON_COMPLETION);
       // course completion stat logic TODO: update relevant fields on course completion
       if (enrollment.completedAt) await statsService.updateUserXp(req.user.userId, req.app.locals.db, XP_CONSTANTS.COURSE_COMPLETION);
       if (enrollment.completedAt) await statsService.updateCoursesCompleted(req.user.userId, req.app.locals.db);
@@ -649,12 +684,12 @@ router.post('/courses/:courseId/modules/:moduleId/quiz/submit', auth, statsMiddl
 
     let moduleProg = enrollment.moduleProgress[moduleProgIndex];
 
-    // Update quizAttempt
-    moduleProg.quizAttempt = quizData;
+    // Update quizAttempts
+    moduleProg.quizAttempts = quizData;
 
     // Check if module is now complete
     let allContentsCompleted = moduleProg.contentProgress.every(cp => cp.completed);
-    let quizCompleted = moduleProg.quizAttempt && Object.keys(moduleProg.quizAttempt).length > 0;
+    let quizCompleted = moduleProg.quizAttempts && Object.keys(moduleProg.quizAttempts).length > 0;
     moduleProg.completed = allContentsCompleted && quizCompleted;
 
     // Calculate overall progress
@@ -667,7 +702,7 @@ router.post('/courses/:courseId/modules/:moduleId/quiz/submit', auth, statsMiddl
       { _id: enrollment._id },
       {
         $set: {
-          'moduleProgress.$[elem].quizAttempt': quizData,
+          'moduleProgress.$[elem].quizAttempts': quizData,
           'moduleProgress.$[elem].completed': moduleProg.completed,
           progress: progress
         }
@@ -744,7 +779,7 @@ router.post('/courses/:courseId/enroll', auth, statsMiddleware.updateLastActive,
           completed: false,
           lastAccessedAt: null
         })) : [],
-        quizAttempt: {}
+        quizAttempts: {}
       })) : [],
       lastAccessedAt: new Date()
     };

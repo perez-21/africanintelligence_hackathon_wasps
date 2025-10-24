@@ -37,7 +37,8 @@ function datemap(dm = "") {
     m = date("m", dm),
     d = date("dt", dm),
     o = {
-      ls:date('ls'),is:date('is'),
+      ls: date("ls"),
+      is: date("is"),
       f: date("f", dm),
       y: y,
       m: m,
@@ -48,7 +49,7 @@ function datemap(dm = "") {
       s: date("s", dm),
       ms: date("ms", dm),
       t: date("f", dm).split(" ")[4],
-      key:date('v')
+      key: date("v"),
     };
   return o;
 }
@@ -65,11 +66,11 @@ function date(r, dm) {
   if (r === "mn") v = o.getMinutes();
   if (r === "s") v = o.getSeconds();
   if (r === "ms") v = o.getMilliseconds();
-  if(r=='is')v=o.toISOString();
-  if(r=='st')v=o.toString();
-  if(r=='ls')v=o.toLocaleString();
-  if(r=='st')v=o.toString();
-  if(r=='v')v=o.valueOf();
+  if (r == "is") v = o.toISOString();
+  if (r == "st") v = o.toString();
+  if (r == "ls") v = o.toLocaleString();
+  if (r == "st") v = o.toString();
+  if (r == "v") v = o.valueOf();
   return v;
 }
 function $$$(e, i, c, at, y) {
@@ -105,8 +106,8 @@ function APP(p, c) {
 var iso = (el) => {
   return typeof el === "object";
 };
-function clg(t,ex) {
-  console.log(t,ex);
+function clg(t, ex) {
+  console.log(t, ex);
 }
 function ocn(o) {
   var c = 0;
@@ -507,86 +508,99 @@ function ourids(o) {
 
   return a;
 }
-function ov2a(o){
+function ov2a(o) {
   return Object.values(o);
 }
-function unspace(a){
-  var b=a.split(' '),c='';
-  for(var i in b)c+=b[i];
+function unspace(a) {
+  var b = a.split(" "),
+    c = "";
+  for (var i in b) c += b[i];
   return c;
 }
 
-async function enrollmentProgress(enrollment){
+async function enrollmentProgress(enrollment) {
+  if (!enrollment) {
+    return;
+  }
+
+  let modulecount = 0;
+  let moduledone = 0;
+
+  let modules = enrollment.moduleProgress;
+
+  for (let module of modules) {
+    let mo = module.contentProgress;
+    modulecount += 1 + ocn(mo);
+    if (ocn(modules[i].quizAttempt)) moduledone++;
+    for (var v in mo) if (mo[v].completed) moduledone++;
+  }
+
+  // Calculate overall progress
+  let progress =
+    moduledone > 0 ? ((moduledone / modulecount) * 100).toFixed(1) : 0;
+
+  return progress;
+}
+async function fixProgress(app) {
+  const enrolls = await app.locals.db
+    .collection("enrollments")
+    .find()
+    .toArray();
+  for (var i in enrolls) myf1(enrolls[i]);
+
+  async function myf1(enrollment) {
     if (!enrollment) {
-      return
+      return;
     }
 
-    let modulecount=0;
-    let moduledone=0;
+    let modulecount = 0;
+    let moduledone = 0;
 
-    let modules=enrollment.moduleProgress;
+    let modules = enrollment.moduleProgress;
 
-    for(var i in modules){
-      let mo=modules[i].contentProgress;modulecount+=(1+ocn(mo));
-      if(ocn(modules[i].quizAttempt))moduledone++;
-      for(var v in mo)if(mo[v].completed)moduledone++;
+    for (var i in modules) {
+      let mo = modules[i].contentProgress;
+      modulecount += 1 + ocn(mo);
+      if (ocn(modules[i].quizAttempt)) moduledone++;
+      for (var v in mo) if (mo[v].completed) moduledone++;
     }
 
-    
     // Calculate overall progress
-    let progress = moduledone > 0 ? ((moduledone / modulecount) * 100).toFixed(1) : 0;
+    let progress =
+      moduledone > 0 ? ((moduledone / modulecount) * 100).toFixed(1) : 0;
 
-    return progress;
-  }
-  async function fixProgress(app){
-  
-    const enrolls=await app.locals.db.collection('enrollments').find().toArray();for(var i in enrolls)myf1(enrolls[i]);
-  
-    async function myf1(enrollment){
-      if (!enrollment) {
-        return
+    if (parse(enrollment.progress) == progress) return;
+    clg(
+      `${enrollment.courseId}'s progress  from ${enrollment.progress} to`,
+      progress
+    );
+    // Update enrollment in DB
+    await app.locals.db.collection("enrollments").updateOne(
+      { _id: enrollment._id },
+      {
+        $set: {
+          progress: progress,
+        },
       }
-  
-      let modulecount=0;
-      let moduledone=0;
-  
-      let modules=enrollment.moduleProgress;
-  
-      for(var i in modules){
-        let mo=modules[i].contentProgress;modulecount+=(1+ocn(mo));
-        if(ocn(modules[i].quizAttempt))moduledone++;
-        for(var v in mo)if(mo[v].completed)moduledone++;
-      }
-  
-      
-      // Calculate overall progress
-      let progress = moduledone > 0 ? ((moduledone / modulecount) * 100).toFixed(1) : 0;
-  
-      
-      if(parse(enrollment.progress)==progress)return;
-      clg(`${enrollment.courseId}'s progress  from ${enrollment.progress} to`,progress);
-      // Update enrollment in DB
-  await app.locals.db.collection('enrollments').updateOne(
-        { _id: enrollment._id },
-        {
-          $set: {
-            progress: progress
-          }
-        }
-      );
-      clg('enrollment data updated')
-  
-    }
+    );
+    clg("enrollment data updated");
   }
-  
-function rfa(a,c){
-  let o=[];for(var i in a)if(a[i]!=c)o.push(a[i]);
+}
+
+function rfa(a, c) {
+  let o = [];
+  for (var i in a) if (a[i] != c) o.push(a[i]);
   return o;
 }
 
 module.exports = {
-  datemap,ov2a,unspace,enrollmentProgress,fixProgress,
-  barme,rfa,
+  datemap,
+  ov2a,
+  unspace,
+  enrollmentProgress,
+  fixProgress,
+  barme,
+  rfa,
   ourids,
   rnd,
   clonea,

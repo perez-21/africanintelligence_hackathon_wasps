@@ -268,9 +268,9 @@ const Dashboard = () => {
                 <div>
                   <p className="text-sm text-blue-600 dark:text-blue-400">Total XP</p>
                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-50">
-                    {userXP?.totalXP || 0}
+                    {studentStats?.totalXp || 0}
                   </p>
-                  <Progress value={userXP ? (userXP.totalXP / (userXP.nextLevelXP + userXP.totalXP)) * 100 : 0} className="mt-2" />
+                  <Progress value={studentStats ? (studentStats.totalXp / (studentStats.nextLevelXP + studentStats.totalXp)) * 100 : 0} className="mt-2" />
                 </div>
               </div>
             </Card>
@@ -308,7 +308,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-sm text-yellow-600 dark:text-yellow-400">Current Streak</p>
-                  <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-50">{userStats.currentStreak} days</p>
+                  <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-50">{studentStats.currentStreak} days</p>
                   <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Keep it up!</p>
                 </div>
               </div>

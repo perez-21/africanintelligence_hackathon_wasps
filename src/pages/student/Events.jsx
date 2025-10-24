@@ -37,10 +37,7 @@ const Events = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => {
-    fetchEvents();
-    fetchEventTypes();
-  }, []);
+
 
   const fetchEvents = async () => {
     try {

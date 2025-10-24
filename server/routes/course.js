@@ -1399,7 +1399,7 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
     let courseId = req.params.id;
     let learnerId = req.user.userId;
 
-    console.log(`course id: ${courseId}`);
+    console.log(`course id: ${courseId} learner id: ${learnerId}`);
 
     let course = await db.collection("courses").findOne({key: courseId});
     if (!course) {
@@ -1421,8 +1421,10 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
       learner: learnerId,
       course: courseId,
       progress: 0,
+      moduleCount: course.modules?.length,
       moduleProgress: course.modules.map((module) => ({
         moduleId: module.title,
+        contentCount: module.content?.length,
         completed: false,
         contentProgress: module.content.map((content) => ({
           contentId: content.title,
@@ -1434,6 +1436,7 @@ router.post("/:id/enroll", auth, roleAuth(["student"]), async (req, res) => {
       completedAt: null,
       lastAccessed: new Date(),
     };
+    console.log(enrollment);
 
     let result = await db.collection("enrollments").insertOne(enrollment);
 

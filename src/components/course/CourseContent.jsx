@@ -97,25 +97,20 @@ const CourseContent = ({ course }) => {
     window.open(gmailUrl, '_blank');
   };
 
-  useEffect(() => {
-  setCourseCompleted(
-    progressStats.completedContent === progressStats.totalContent &&
-    progressStats.completedContent > 0
-  );
-}, [progressStats]);
-
-  useEffect(() => {
-    if (courseCompleted) {
-
+  useEffect(() => {  
     
-      // update stats
-
-    }
-  }, [courseCompleted])
-
+    setCourseCompleted(
+      progressStats.completedContent === progressStats.totalContent &&
+      progressStats.completedContent > 0
+    );
+}, [progressStats]);
   
   useEffect(() => {
     if (course && course.enrollment && course.enrollment.moduleProgress) {
+      console.log(`course enrollment: ${JSON.stringify(course.enrollment)}`)
+      /*
+        course enrollment: {"_id":"68d3cc6035b99ed6627ba18d","learner":"68d3beb383fb13e7466b4600","course":"course-1754964417891","progress":"50.0","moduleProgress":[{"moduleId":"HTML Basics","completed":null,"contentProgress":[{"contentId":"Introduction to HTML","completed":true,"lastAccessedAt":"2025-09-24T10:49:36.334Z"}],"quizAttempts":[],"contentCount":1}],"enrolledAt":"2025-09-24T10:48:00.473Z","completedAt":null,"lastAccessed":"2025-09-24T10:48:00.473Z","moduleCount":1}
+       */
       const completed = {};
       course.enrollment.moduleProgress.forEach(module => {
         module.contentProgress.forEach(content => {
